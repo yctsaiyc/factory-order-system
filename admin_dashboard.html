@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>餐點訂購系統 - 管理員後台</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* [START] 儀表板樣式 */
+        /* [NEW] 調整頁面寬度 */
+        .container {
+            max-width: 1000px; /* 增加最大寬度 */
+            margin: auto;
+            padding: 20px;
+        }         
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tab-menu {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            font-size: 16px;
+            font-weight: bold;
+            color: #555;
+            transition: color 0.2s;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap; /* 防止按鈕換行 */
+        }
+        .tab-button:hover {
+            color: #007bff;
+        }
+        .tab-button.active {
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+        }
+        .tab-content {
+            display: none;
+            padding: 15px 0;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* [UPDATED] CRUD 表格樣式 - 增加格線 */
+        .master-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .master-controls input, .master-controls select {
+             padding: 8px;
+             border: 1px solid #ccc;
+             border-radius: 4px;
+        }
+        .master-table {
+            width: 100%;
+            border-collapse: collapse; /* 合併邊框以形成格線 */
+        }
+        .master-table th, .master-table td {
+            border: 1px solid #ccc; /* 增加格線 */
+            padding: 8px; /* 增加內邊距 */
+            text-align: left;
+        }
+        .master-table th {
+            background-color: #f0f0f0;
+        }
+        
+        /* [UPDATED] 調整員工主檔表格欄寬 */
+        #EmployeeMaster .master-table th:nth-child(2),
+        #EmployeeMaster .master-table td:nth-child(2) { width: 100px; } /* 員工編號 */
+        #EmployeeMaster .master-table th:nth-child(3),
+        #EmployeeMaster .master-table td:nth-child(3) { width: 120px; } /* 員工姓名 */
+        #EmployeeMaster .master-table th:nth-child(4),
+        #EmployeeMaster .master-table td:nth-child(4) { width: 100px; } /* 密碼 */
+        #EmployeeMaster .master-table th:nth-child(5),
+        #EmployeeMaster .master-table td:nth-child(5) { width: 100px; } /* 部門代號 */
+        #EmployeeMaster .master-table th:nth-child(7),
+        #EmployeeMaster .master-table td:nth-child(7) { width: 120px; } /* 操作 */
+
+        /* [UPDATED] 調整部門主檔表格欄寬 */
+        #DeptMaster .master-table th:nth-child(2),
+        #DeptMaster .master-table td:nth-child(2) { width: 120px; } /* 部門代號 */
+        #DeptMaster .master-table th:nth-child(3),
+        #DeptMaster .master-table td:nth-child(3) { width: 150px; } /* 部門名稱 */
+        #DeptMaster .master-table th:nth-child(4),
+        #DeptMaster .master-table td:nth-child(4) { width: 100px; } /* 操作1 */
+        #DeptMaster .master-table th:nth-child(5),
+        #DeptMaster .master-table td:nth-child(5) { width: 100px; } /* 操作2 */
+
+        /* [UPDATED] 調整窗口維護表格欄寬 */
+        #MealOrderWindowMaster .master-table th:nth-child(2),
+        #MealOrderWindowMaster .master-table td:nth-child(2) { width: 100px; } /* 員工編號 */
+        #MealOrderWindowMaster .master-table th:nth-child(3),
+        #MealOrderWindowMaster .master-table td:nth-child(3) { width: 150px; } /* 員工姓名 */
+        #MealOrderWindowMaster .master-table th:nth-child(6),
+        #MealOrderWindowMaster .master-table td:nth-child(6) { width: 120px; } /* 操作 */
+
+
+        /* [END] 儀表板樣式 */
+
+        /* 原有的訂單管理樣式 */
+        .admin-controls { padding: 15px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px; background-color: #f7f7f7; }
+        .control-group { margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .control-group label { font-weight: bold; white-space: nowrap; }
+        .history-quick-buttons button { padding: 5px 10px; border: 1px solid #007bff; background-color: #fff; color: #007bff; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; margin-right: 5px; }
+        .history-quick-buttons button:hover { background-color: #e6f7ff; }
+        .date-input-group { display: flex; align-items: center; gap: 10px; }
+        #employee-filter, #dept-filter { padding: 8px; border: 1px solid #ccc; border-radius: 5px; flex: 1; min-width: 150px;}
+        .export-buttons-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+        .export-buttons-group button { flex-basis: calc(33.33% - 7px); min-width: 150px; padding: 10px 5px; }
+        /* 訂單管理表格 - 增加格線 */
+        #admin-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #admin-table th, #admin-table td {
+            border: 1px solid #ccc; /* Add grid lines to admin table */
+            padding: 8px;
+        }
+        #admin-table th { background-color: #007bff; color: white; }
+    </style>
+</head>
+<body onload="checkAdminLogin()">
+    <div class="container">
+        <div class="admin-header">
+            <h2>🍜 管理員後台系統</h2>
+            <button class="btn btn-cancel" onclick="logout()" style="width: auto; padding: 5px 10px;">登出</button>
+        </div>
+
+        <div class="tab-menu">
+            <button class="tab-button active" onclick="openTab(event, 'OrderManagement')">1. 訂單管理與統計</button>
+            <button class="tab-button" onclick="openTab(event, 'DeptMaster')">2. 部門主檔維護</button>
+            <button class="tab-button" onclick="openTab(event, 'EmployeeMaster')">3. 員工主檔維護</button>
+            <button class="tab-button" onclick="openTab(event, 'MealOrderWindowMaster')">4. 訂餐窗口維護</button>
+        </div>
+
+        <div id="OrderManagement" class="tab-content active">
+            <p id="admin-message" class="alert-danger">
+                **警告:** 管理員對訂單的修改**不受 09:30 限制**，所有修改將立即生效，並標記為管理員操作。
+            </p>
+
+            <div class="admin-controls">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div class="control-group" style="flex: 1; margin-bottom: 0;">
+                        <label for="dept-filter">篩選部門:</label>
+                        <select id="dept-filter" onchange="filterEmployeesByDept()"></select>
+                    </div>
+                    <div class="control-group" style="flex: 1; margin-bottom: 0;">
+                        <label for="employee-filter">篩選員工:</label>
+                        <select id="employee-filter" onchange="loadOrders()"></select>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>快捷查詢:</label>
+                    <div class="history-quick-buttons">
+                        <button onclick="setQuickRange('thisWeek')">本週</button>
+                        <button onclick="setQuickRange('lastWeek')">上週</button>
+                        <button onclick="setQuickRange('thisMonth')">本月</button>
+                        <button onclick="setQuickRange('lastMonth')">上月</button>
+                    </div>
+                </div>
+                <div class="control-group date-input-group">
+                    <label for="order-date-from">查詢區間:</label>
+                    <input type="date" id="order-date-from" style="flex: 1;">
+                    <label for="order-date-to">至:</label>
+                    <input type="date" id="order-date-to" style="flex: 1;">
+                    <button class="btn btn-order" style="width: auto;" onclick="loadOrders()">查詢</button>
+                </div>
+                <div class="export-buttons-group">
+                    <button class="btn btn-order" onclick="exportOrders()">匯出餐點總數量統計表</button>
+                    <button class="btn btn-order" onclick="exportEmployeeStats()">匯出員工訂購數量統計表</button>
+                    <button class="btn btn-order" onclick="exportDailyDetails()">匯出員工每日訂購明細表</button>
+                </div>
+            </div>
+
+            <h3>訂單總覽與修改 (<span id="query-summary">請選擇日期區間查詢</span>)</h3>
+            <table id="admin-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">日期</th>
+                        <th style="width: 80px;">員工ID</th>
+                        <th style="width: 80px;">姓名</th>
+                        <th style="width: 50px;">餐別</th>
+                        <th style="width: 50px;">葷素</th>
+                        <th style="width: 50px;">飯量</th>
+                        <th style="width: 80px;">管理員修改?</th>
+                        <th style="width: 80px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="order-list">
+                    <tr><td colspan="8">請設定篩選條件並點擊查詢...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="DeptMaster" class="tab-content">
+            <h3>🏢 部門主檔維護 (CRUD)</h3>
+            
+            <div class="master-controls">
+                <input type="hidden" id="dept-oid">
+                <input type="text" id="dept-code" placeholder="部門代號" required>
+                <input type="text" id="dept-name" placeholder="部門名稱" required>
+                <button class="btn btn-order" onclick="saveDept()">新增/儲存</button>
+                <button class="btn btn-cancel" onclick="clearDeptForm()">清空</button>
+            </div>
+
+            <table class="master-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">OID</th>
+                        <th>部門代號</th>
+                        <th>部門名稱</th>
+                        <th colspan="2">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="dept-list">
+                    </tbody>
+            </table>
+        </div>
+
+        <div id="EmployeeMaster" class="tab-content">
+            <h3>👤 員工主檔維護 (CRUD)</h3>
+
+            <div class="master-controls" style="flex-wrap: wrap;">
+                <input type="hidden" id="emp-oid">
+                
+                <input type="text" id="emp-id" placeholder="員工編號" required style="flex: 1;">
+                <input type="text" id="emp-name" placeholder="員工姓名" required style="flex: 1;">
+                <input type="password" id="emp-password" placeholder="密碼" required style="flex: 1;">
+                
+                <label for="emp-dept-select" style="font-weight: normal;">部門:</label>
+                <select id="emp-dept-select" style="flex: 1;"></select>
+                
+                <button class="btn btn-order" onclick="saveEmployee()">新增/儲存</button>
+                <button class="btn btn-cancel" onclick="clearEmployeeForm()">清空</button>
+            </div>
+
+            <table class="master-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">OID</th>
+                        <th>員工編號</th>
+                        <th>員工姓名</th>
+                        <th>密碼 (僅長度)</th>
+                        <th>部門代號</th>
+                        <th style="width: auto;">部門名稱</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="employee-list">
+                    </tbody>
+            </table>
+        </div>
+        
+        <div id="MealOrderWindowMaster" class="tab-content">
+            <h3>🧑‍💻 訂餐窗口維護 (CRUD)</h3>
+
+            <div class="master-controls" style="flex-wrap: wrap; align-items: flex-start;">
+                <input type="hidden" id="window-oid">
+                
+                <label for="window-emp-select" style="font-weight: normal; margin-right: 10px;">窗口員工:</label>
+                <select id="window-emp-select" style="flex: 1; min-width: 150px; margin-bottom: 10px;"></select>
+                
+                <div style="width: 100%; margin-bottom: 10px;">
+                    <label style="font-weight: normal; margin-right: 10px;">負責單位 (可複選):</label>
+                    <div id="window-dept-checkboxes" style="display: flex; flex-wrap: wrap; gap: 10px; border: 1px solid #ccc; padding: 10px; border-radius: 4px; background-color: #fff;">
+                        </div>
+                </div>
+                
+                <button class="btn btn-order" onclick="saveWindow()">新增/儲存</button>
+                <button class="btn btn-cancel" onclick="clearWindowForm()">清空</button>
+            </div>
+
+            <table class="master-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">OID</th>
+                        <th>員工編號</th>
+                        <th>員工姓名</th>
+                        <th>負責部門代號</th>
+                        <th>負責部門名稱</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="window-list">
+                    </tbody>
+            </table>
+        </div>
+
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>修改訂單</h3>
+                    <span class="close" onclick="closeEditModal()">&times;</span>
+                </div>
+                <div id="edit-form">
+                    <p>員工: <strong id="edit-emp-info"></strong></p>
+                    <p>餐別: <strong id="edit-meal-type"></strong></p>
+                    
+                    <div class="option-group">
+                        <label>葷素:</label>
+                        <input type="radio" id="edit-diet-meat" name="edit-diet" value="MEAT"> 葷食
+                        <input type="radio" id="edit-diet-veg" name="edit-diet" value="VEG"> 素食
+                    </div>
+    
+                    <div class="option-group">
+                        <label>飯量:</label>
+                        <input type="radio" id="edit-rice-full" name="edit-rice" value="FULL"> 全飯
+                        <input type="radio" id="edit-rice-half" name="edit-rice" value="HALF"> 半飯
+                    </div>
+
+                    <p>是否取消訂單 (設為未訂購): <input type="checkbox" id="edit-is-ordered"></p>
+    
+                    <button class="btn btn-order" onclick="saveEdit()">確認修改</button>
+                    <input type="hidden" id="edit-order-key">
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Global for filtering/permissions - simplified for development
+        let currentViewableDeptCodes = [];
+        let isAdmin = false;
+
+        // 初始化檢查登入狀態
+        function checkAdminLogin() {
+            if (sessionStorage.getItem('isAdminLoggedIn') !== 'true') {
+                window.location.href = 'admin_login.html';
+            }
+            // 初始化部門、員工和窗口主檔資料
+            loadDeptData();
+            loadEmployeeData();
+            loadWindowData(); // NEW: Load the new Window Master Data
+
+            // 初始化訂單管理篩選器，並載入初始訂單
+            loadFilters(); // NEW function to handle dept/employee filter based on role
+            
+            // 使用快捷查詢載入初始資料
+            setQuickRange('thisMonth');
+        }
+
+        // --- 頁籤切換邏輯 ---
+        function openTab(evt, tabName) {
+            let i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+
+            // 如果切換到主檔維護頁籤，重新載入資料
+            if (tabName === 'DeptMaster') loadDeptData();
+            if (tabName === 'EmployeeMaster') loadEmployeeData();
+            if (tabName === 'MealOrderWindowMaster') loadWindowData(); // NEW
+        }
+
+
+        // --- 核心變數與輔助函式 (從上傳檔案調整) ---
+        // 為了維持原有未修改的函式的兼容性，特別是 export... 函式
+        const employeeData = getMasterEmployees().reduce((map, emp) => {
+            map[emp.EmpID] = emp.EmpName;
+            return map;
+        }, {});
+        
+        const mealMap = { LUNCH: '午餐', DINNER: '晚餐' };
+        const dietMap = { MEAT: '葷食', VEG: '素食' };
+        const riceMap = { FULL: '全飯', HALF: '半飯' };
+
+        function getOrders() {
+            return JSON.parse(localStorage.getItem('mealOrders')) || {};
+        }
+        function saveOrders(orders) {
+            localStorage.setItem('mealOrders', JSON.stringify(orders));
+        }
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+        function logout() {
+            sessionStorage.removeItem('isAdminLoggedIn');
+            window.location.href = 'admin_login.html'; 
+        }
+
+        // --- 2. 部門主檔維護 (CRUD) 邏輯 ---
+        function getMasterDepts() {
+            // 預設一些部門數據
+            const defaultDepts = [
+                { OID: 1, DeptCode: 'A10', DeptName: '生產部' },
+                { OID: 2, DeptCode: 'B20', DeptName: '倉儲部' },
+                { OID: 3, DeptCode: 'C30', DeptName: '行政部' }
+            ];
+            return JSON.parse(localStorage.getItem('masterDepts')) || defaultDepts;
+        }
+
+        function saveMasterDepts(depts) {
+            localStorage.setItem('masterDepts', JSON.stringify(depts));
+            // 部門更新時，需要重新載入篩選器
+            if (document.getElementById('dept-filter')) loadFilters(); 
+            if (document.getElementById('window-list')) loadWindowData(); 
+        }
+
+        function loadDeptData() {
+            const depts = getMasterDepts();
+            const listBody = document.getElementById('dept-list');
+            listBody.innerHTML = '';
+            
+            depts.sort((a, b) => a.DeptCode.localeCompare(b.DeptCode));
+
+            depts.forEach(dept => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${dept.OID}</td>
+                    <td>${dept.DeptCode}</td>
+                    <td>${dept.DeptName}</td>
+                    <td><button class="btn btn-order" style="padding: 4px 6px;" onclick="editDept(${dept.OID})">編輯</button></td>             
+                    <td><button class="btn btn-cancel" style="padding: 4px 6px;" onclick="deleteDept(${dept.OID})">刪除</button></td>    
+                `;
+                listBody.appendChild(tr);
+            });
+            // 部門主檔更新時，同步更新員工維護頁籤的下拉選單
+            updateEmployeeDeptSelect(depts);
+        }
+        
+        function clearDeptForm() {
+            document.getElementById('dept-oid').value = '';
+            document.getElementById('dept-code').value = '';
+            document.getElementById('dept-name').value = '';
+        }
+
+        function saveDept() {
+            let depts = getMasterDepts();
+            const oid = document.getElementById('dept-oid').value;
+            const code = document.getElementById('dept-code').value.trim().toUpperCase();
+            const name = document.getElementById('dept-name').value.trim();
+
+            if (!code || !name) {
+                alert('部門代號和部門名稱不能為空！');
+                return;
+            }
+
+            if (oid) {
+                // 修改現有部門
+                const index = depts.findIndex(d => d.OID == oid);
+                if (index > -1) {
+                    // 檢查修改後的代號是否與其他部門代號衝突
+                    if (depts.some(d => d.DeptCode === code && d.OID != oid)) {
+                        alert('部門代號已存在！');
+                        return;
+                    }
+                    depts[index].DeptCode = code;
+                    depts[index].DeptName = name;
+                }
+            } else {
+                // 新增部門
+                if (depts.some(d => d.DeptCode === code)) {
+                    alert('部門代號已存在！');
+                    return;
+                }
+                const newOID = depts.length > 0 ? Math.max(...depts.map(d => d.OID)) + 1 : 1;
+                depts.push({ OID: newOID, DeptCode: code, DeptName: name });
+            }
+
+            saveMasterDepts(depts);
+            clearDeptForm();
+            loadDeptData();
+            alert('部門資料儲存成功！');
+        }
+
+        function editDept(oid) {
+            const depts = getMasterDepts();
+            const dept = depts.find(d => d.OID === oid);
+            if (dept) {
+                document.getElementById('dept-oid').value = dept.OID;
+                document.getElementById('dept-code').value = dept.DeptCode;
+                document.getElementById('dept-name').value = dept.DeptName;
+            }
+        }
+
+        function deleteDept(oid) {
+            if (!confirm('確定要刪除此部門嗎？所有關聯的員工資料可能需要手動更新。')) return;
+            let depts = getMasterDepts().filter(d => d.OID !== oid);
+            saveMasterDepts(depts);
+            loadDeptData();
+            alert('部門資料刪除成功！');
+        }
+
+
+        // --- 3. 員工主檔維護 (CRUD) 邏輯 ---
+        function getMasterEmployees() {
+            // 預設員工數據
+            const defaultEmps = [
+                { OID: 101, DeptCode: 'A10', DeptName: '生產部', EmpID: '93800', EmpName: '林淑鈺', Password: '1234' },
+                { OID: 102, DeptCode: 'B20', DeptName: '倉儲部', EmpID: '28109', EmpName: '詹金璋', Password: '1234' },
+                { OID: 103, DeptCode: 'C30', DeptName: '行政部', EmpID: '2400305', EmpName: '王瀚章', Password: '1234' }
+            ];
+            return JSON.parse(localStorage.getItem('masterEmployees')) || defaultEmps;
+        }
+
+        function saveMasterEmployees(employees) {
+            localStorage.setItem('masterEmployees', JSON.stringify(employees));
+            // 同步更新訂單管理的篩選器
+            loadFilters(); 
+            // 同步更新窗口維護的員工列表
+            if (document.getElementById('window-list')) loadWindowData(); 
+        }
+
+        function updateEmployeeDeptSelect(depts) {
+            const select = document.getElementById('emp-dept-select');
+            select.innerHTML = '<option value="">-- 請選擇部門 --</option>';
+            depts.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.DeptCode;
+                option.textContent = `${dept.DeptCode} - ${dept.DeptName}`;
+                option.setAttribute('data-name', dept.DeptName);
+                select.appendChild(option);
+            });
+        }
+
+        function loadEmployeeData() {
+            const employees = getMasterEmployees();
+            const depts = getMasterDepts(); // 取得部門資料用於顯示
+            const listBody = document.getElementById('employee-list');
+            listBody.innerHTML = '';
+
+            employees.sort((a, b) => a.EmpID.localeCompare(b.EmpID));
+
+            employees.forEach(emp => {
+                const deptInfo = depts.find(d => d.DeptCode === emp.DeptCode) || { DeptName: '未知', DeptCode: 'N/A' };
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${emp.OID}</td>
+                    <td>${emp.EmpID}</td>
+                    <td>${emp.EmpName}</td>
+                    <td>${'•'.repeat(emp.Password ? emp.Password.length : 0)}</td>
+                    <td>${deptInfo.DeptCode}</td>
+                    <td>${deptInfo.DeptName}</td>
+                    <td>
+                        <button class="btn btn-order" style="padding: 5px 8px;" onclick="editEmployee(${emp.OID})">編輯</button>
+                        <button class="btn btn-cancel" style="padding: 5px 8px;" onclick="deleteEmployee(${emp.OID})">刪除</button>
+                    </td>
+                `;
+                listBody.appendChild(tr);
+            });
+            updateEmployeeDeptSelect(depts);
+        }
+        
+        function clearEmployeeForm() {
+            document.getElementById('emp-oid').value = '';
+            document.getElementById('emp-id').value = '';
+            document.getElementById('emp-name').value = '';
+            document.getElementById('emp-password').value = '';
+            document.getElementById('emp-dept-select').value = '';
+        }
+
+        function saveEmployee() {
+            let employees = getMasterEmployees();
+            const depts = getMasterDepts();
+            const oid = document.getElementById('emp-oid').value;
+            const empId = document.getElementById('emp-id').value.trim().toUpperCase();
+            const empName = document.getElementById('emp-name').value.trim();
+            const password = document.getElementById('emp-password').value;
+            const deptCode = document.getElementById('emp-dept-select').value;
+            
+            if (!empId || !empName || !password || !deptCode) {
+                alert('員工編號、姓名、密碼和部門都不能為空！');
+                return;
+            }
+
+            const selectedDept = depts.find(d => d.DeptCode === deptCode);
+            const deptName = selectedDept ? selectedDept.DeptName : '未知';
+
+            if (oid) {
+                // 修改現有員工
+                const index = employees.findIndex(e => e.OID == oid);
+                if (index > -1) {
+                    // 檢查修改後的員工編號是否與其他員工編號衝突
+                    if (employees.some(e => e.EmpID === empId && e.OID != oid)) {
+                        alert('員工編號已存在！');
+                        return;
+                    }
+                    employees[index].EmpID = empId;
+                    employees[index].EmpName = empName;
+                    employees[index].Password = password;
+                    employees[index].DeptCode = deptCode;
+                    employees[index].DeptName = deptName;
+                }
+            } else {
+                // 新增員工
+                if (employees.some(e => e.EmpID === empId)) {
+                    alert('員工編號已存在！');
+                    return;
+                }
+                const newOID = employees.length > 0 ? Math.max(...employees.map(e => e.OID)) + 1 : 101;
+                employees.push({ OID: newOID, DeptCode: deptCode, DeptName: deptName, EmpID: empId, EmpName: empName, Password: password });
+            }
+
+            saveMasterEmployees(employees);
+            clearEmployeeForm();
+            loadEmployeeData();
+            alert('員工資料儲存成功！');
+        }
+
+        function editEmployee(oid) {
+            const employees = getMasterEmployees();
+            const emp = employees.find(e => e.OID === oid);
+            if (emp) {
+                document.getElementById('emp-oid').value = emp.OID;
+                document.getElementById('emp-id').value = emp.EmpID;
+                document.getElementById('emp-name').value = emp.EmpName;
+                document.getElementById('emp-password').value = emp.Password; // 載入密碼原始值
+                document.getElementById('emp-dept-select').value = emp.DeptCode;
+            }
+        }
+
+        function deleteEmployee(oid) {
+            if (!confirm('確定要刪除此員工嗎？')) return;
+            let employees = getMasterEmployees().filter(e => e.OID !== oid);
+            saveMasterEmployees(employees);
+            loadEmployeeData();
+            alert('員工資料刪除成功！');
+        }
+
+        // --- 4. 訂餐窗口維護 (CRUD) 邏輯 ---
+        function getMasterWindows() {
+            // 預設一個窗口數據 (詹金璋 28109 負責 A10 生產部, C30 行政部)
+            const defaultWindows = [
+                { OID: 1, EmpID: '28109', ResponsibleDeptCodes: ['A10', 'C30'] }
+            ];
+            return JSON.parse(localStorage.getItem('masterWindows')) || defaultWindows;
+        }
+
+        function saveMasterWindows(windows) {
+            localStorage.setItem('masterWindows', JSON.stringify(windows));
+            // 窗口資料變更時，需要重新載入篩選器
+            if (document.getElementById('dept-filter')) loadFilters(); 
+        }
+        
+        function updateWindowDeptCheckboxes(depts, responsibleCodes = []) {
+            const container = document.getElementById('window-dept-checkboxes');
+            container.innerHTML = '';
+            depts.sort((a, b) => a.DeptCode.localeCompare(b.DeptCode)).forEach(dept => {
+                const isChecked = responsibleCodes.includes(dept.DeptCode);
+                container.innerHTML += `
+                    <div style="white-space: nowrap;">
+                        <input type="checkbox" id="dept-check-${dept.DeptCode}" value="${dept.DeptCode}" ${isChecked ? 'checked' : ''}>
+                        <label for="dept-check-${dept.DeptCode}">${dept.DeptCode} - ${dept.DeptName}</label>
+                    </div>
+                `;
+            });
+        }
+
+        function updateWindowEmployeeSelect(employees) {
+            const select = document.getElementById('window-emp-select');
+            select.innerHTML = '<option value="">-- 請選擇窗口員工 --</option>';
+            employees.sort((a, b) => a.EmpID.localeCompare(b.EmpID)).forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp.EmpID;
+                option.textContent = `${emp.EmpID} - ${emp.EmpName} (${emp.DeptCode})`;
+                select.appendChild(option);
+            });
+        }
+
+        function loadWindowData() {
+            const windows = getMasterWindows();
+            const employees = getMasterEmployees();
+            const depts = getMasterDepts();
+            const listBody = document.getElementById('window-list');
+            listBody.innerHTML = '';
+            
+            // Populate the dropdown and checkboxes for the form
+            updateWindowEmployeeSelect(employees);
+            updateWindowDeptCheckboxes(depts); // Empty selection for initial form
+
+            windows.sort((a, b) => a.EmpID.localeCompare(b.EmpID));
+
+            windows.forEach(win => {
+                const empInfo = employees.find(e => e.EmpID === win.EmpID) || { EmpName: '未知員工', DeptCode: 'N/A' };
+                
+                const deptNames = win.ResponsibleDeptCodes.map(code => {
+                    const dept = depts.find(d => d.DeptCode === code);
+                    return dept ? dept.DeptName : `未知(${code})`;
+                });
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${win.OID}</td>
+                    <td>${win.EmpID}</td>
+                    <td>${empInfo.EmpName}</td>
+                    <td>${win.ResponsibleDeptCodes.join('<br>')}</td>
+                    <td>${deptNames.join('<br>')}</td>
+                    <td>
+                        <button class="btn btn-order" style="padding: 5px 8px;" onclick="editWindow(${win.OID})">編輯</button>
+                        <button class="btn btn-cancel" style="padding: 5px 8px;" onclick="deleteWindow(${win.OID})">刪除</button>
+                    </td>
+                `;
+                listBody.appendChild(tr);
+            });
+        }
+
+        function clearWindowForm() {
+            document.getElementById('window-oid').value = '';
+            document.getElementById('window-emp-select').value = '';
+            const depts = getMasterDepts();
+            updateWindowDeptCheckboxes(depts); // Reset checkboxes
+        }
+
+        function saveWindow() {
+            let windows = getMasterWindows();
+            const oid = document.getElementById('window-oid').value;
+            const empId = document.getElementById('window-emp-select').value;
+            const deptCheckboxes = document.querySelectorAll('#window-dept-checkboxes input[type="checkbox"]:checked');
+            const responsibleDeptCodes = Array.from(deptCheckboxes).map(cb => cb.value);
+
+            if (!empId) {
+                alert('請選擇一個窗口員工！');
+                return;
+            }
+
+            if (windows.some(w => w.EmpID === empId && w.OID != oid)) {
+                alert('該員工已經是訂餐窗口！請使用編輯功能修改。');
+                return;
+            }
+
+            if (responsibleDeptCodes.length === 0) {
+                alert('請至少選擇一個負責單位！');
+                return;
+            }
+
+            if (oid) {
+                // 修改現有窗口
+                const index = windows.findIndex(w => w.OID == oid);
+                if (index > -1) {
+                    windows[index].EmpID = empId;
+                    windows[index].ResponsibleDeptCodes = responsibleDeptCodes;
+                }
+            } else {
+                // 新增窗口
+                const newOID = windows.length > 0 ? Math.max(...windows.map(w => w.OID)) + 1 : 1;
+                windows.push({ OID: newOID, EmpID: empId, ResponsibleDeptCodes: responsibleDeptCodes });
+            }
+
+            saveMasterWindows(windows);
+            clearWindowForm();
+            loadWindowData();
+            alert('訂餐窗口資料儲存成功！');
+        }
+
+        function editWindow(oid) {
+            const windows = getMasterWindows();
+            const depts = getMasterDepts();
+            const win = windows.find(w => w.OID === oid);
+            if (win) {
+                document.getElementById('window-oid').value = win.OID;
+                document.getElementById('window-emp-select').value = win.EmpID;
+                updateWindowDeptCheckboxes(depts, win.ResponsibleDeptCodes);
+            }
+        }
+
+        function deleteWindow(oid) {
+            if (!confirm('確定要刪除此訂餐窗口設定嗎？')) return;
+            let windows = getMasterWindows().filter(w => w.OID !== oid);
+            saveMasterWindows(windows);
+            loadWindowData();
+            alert('訂餐窗口資料刪除成功！');
+        }
+        
+        // --- 1. 訂單管理篩選邏輯 ---
+
+        function loadFilters() {
+            const isUserAdmin = sessionStorage.getItem('isAdminLoggedIn') === 'true';
+            isAdmin = isUserAdmin;
+            const allEmployees = getMasterEmployees();
+            const allDepts = getMasterDepts();
+            const allWindows = getMasterWindows();
+            
+            // *** 這是管理員後台，目前假設只有 Admin 登入，所以 Admin 看到所有部門。
+            // *** 未來如果需要區分登入者，此處應使用實際 logged-in EmpID 來查找其負責部門。
+            
+            let viewableDepts = allDepts; // Admin sees all
+            let loggedInEmpID = ''; // Placeholder for real system
+
+            if (!isUserAdmin && loggedInEmpID) { 
+                 const windowInfo = allWindows.find(w => w.EmpID === loggedInEmpID);
+                 if (windowInfo) {
+                     viewableDepts = allDepts.filter(d => windowInfo.ResponsibleDeptCodes.includes(d.DeptCode));
+                 } else {
+                     viewableDepts = []; // Not an admin and not a window, see nothing
+                 }
+            }
+            
+            // Set global viewable department codes
+            currentViewableDeptCodes = viewableDepts.map(d => d.DeptCode);
+            
+            // 1. Populate Department Filter
+            const deptFilter = document.getElementById('dept-filter');
+            deptFilter.innerHTML = `<option value="ALL_RESPONSIBLE">${isAdmin ? '所有單位 (管理員)' : '負責單位全部'}</option>`;
+            
+            viewableDepts.sort((a, b) => a.DeptCode.localeCompare(b.DeptCode)).forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.DeptCode;
+                option.textContent = `${dept.DeptCode} - ${dept.DeptName}`;
+                deptFilter.appendChild(option);
+            });
+
+            // 2. Populate Employee Filter (Trigger the linked function)
+            filterEmployeesByDept();
+        }
+
+        function filterEmployeesByDept() {
+            const deptCode = document.getElementById('dept-filter').value;
+            const employeeFilter = document.getElementById('employee-filter');
+            const allEmployees = getMasterEmployees();
+            
+            // Determine the departments whose employees should be shown
+            const deptsToFilter = (deptCode === 'ALL_RESPONSIBLE') ? currentViewableDeptCodes : [deptCode];
+
+            employeeFilter.innerHTML = '<option value="ALL">所有員工</option>';
+            
+            const filteredEmployees = allEmployees
+                .filter(emp => deptsToFilter.includes(emp.DeptCode))
+                .sort((a, b) => a.EmpID.localeCompare(b.EmpID));
+
+            filteredEmployees.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp.EmpID;
+                option.textContent = `${emp.EmpID} - ${emp.EmpName} (${emp.DeptCode})`;
+                employeeFilter.appendChild(option);
+            });
+
+            loadOrders(); // Reload orders whenever department/employee filter changes
+        }
+
+        function loadOrders() {
+            const dateFromStr = document.getElementById('order-date-from').value;
+            const dateToStr = document.getElementById('order-date-to').value;
+            const selectedDeptCode = document.getElementById('dept-filter').value;
+            const selectedEmpId = document.getElementById('employee-filter').value;
+            
+            if (!dateFromStr || !dateToStr) {
+                document.getElementById('order-list').innerHTML = '<tr><td colspan="8">請設定篩選條件並點擊查詢...</td></tr>';
+                document.getElementById('query-summary').textContent = '請選擇日期區間查詢';
+                return;
+            }
+
+            const dateFrom = new Date(dateFromStr + 'T00:00:00');
+            const dateTo = new Date(dateToStr + 'T00:00:00');
+            const allOrders = getOrders();
+            const currentEmployees = getMasterEmployees(); 
+            const employeeMap = currentEmployees.reduce((map, emp) => {
+                map[emp.EmpID] = { EmpName: emp.EmpName, DeptCode: emp.DeptCode };
+                return map;
+            }, {});
+
+            const orderList = document.getElementById('order-list');
+            orderList.innerHTML = '';
+            let filteredOrders = [];
+
+            if (dateFrom > dateTo) {
+                orderList.innerHTML = `<tr><td colspan="8" style="color: red;">起始日期不能晚於結束日期！</td></tr>`;
+                return;
+            }
+
+            // Determine the departments to include in the order list (based on filter selection AND user's viewable departments)
+            let allowedDeptCodes = (selectedDeptCode === 'ALL_RESPONSIBLE') ? currentViewableDeptCodes : [selectedDeptCode];
+            
+            let currentDate = new Date(dateFrom);
+            while (currentDate <= dateTo) {
+                const dateKey = formatDate(currentDate);
+                
+                for (const key in allOrders) {
+                    const order = allOrders[key];
+                    const [orderDate, empId, mealType] = key.split('_');
+
+                    if (orderDate === dateKey) {
+                        const empInfo = employeeMap[empId];
+                        if (!empInfo) continue; 
+
+                        // 1. Department Filter check: must be in the allowed department list
+                        const deptMatch = allowedDeptCodes.includes(empInfo.DeptCode);
+                        
+                        // 2. Employee Filter check: must be ALL or the selected EmpID
+                        const empMatch = (selectedEmpId === 'ALL' || selectedEmpId === empId);
+
+                        // 3. Must be an ordered item
+                        if (order.IsOrdered && deptMatch && empMatch) {
+                            filteredOrders.push({ key, order, dateKey, EmpName: empInfo.EmpName });
+                        }
+                    }
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            if (filteredOrders.length === 0) {
+                orderList.innerHTML = `<tr><td colspan="8">在選擇的區間和條件下沒有訂單記錄。</td></tr>`;
+            } else {
+                filteredOrders.forEach(item => {
+                    const order = item.order;
+                    const empName = item.EmpName; 
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${item.dateKey}</td>
+                        <td>${order.EmpID}</td>
+                        <td>${empName}</td>
+                        <td>${mealMap[order.MealType]}</td>
+                        <td>${dietMap[order.DietType]}</td>
+                        <td>${riceMap[order.RicePortion]}</td>
+                        <td>${order.AdminModified ? '✅ 是' : '❌ 否'}</td>
+                        <td><button class="btn btn-order" style="width: auto; padding: 5px 8px;" onclick="openEditModal('${item.key}')">修改</button></td>
+                    `;
+                    orderList.appendChild(tr);
+                });
+            }
+            
+            const selectedDeptName = document.getElementById('dept-filter').options[document.getElementById('dept-filter').selectedIndex].textContent;
+            const selectedEmpName = document.getElementById('employee-filter').options[document.getElementById('employee-filter').selectedIndex].textContent;
+
+            document.getElementById('query-summary').textContent = 
+                `${dateFromStr} ~ ${dateToStr}，部門: ${selectedDeptName}，員工: ${selectedEmpName}，共 ${filteredOrders.length} 筆訂單`;
+        }
+
+        // --- 快捷日期區間設定 (保持不變) ---
+        function setQuickRange(period) {
+            const today = new Date();
+            let startDate, endDate;
+
+            switch (period) {
+                case 'thisWeek': 
+                    startDate = new Date(today);
+                    startDate.setDate(today.getDate() - today.getDay()); 
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 6);
+                    break;
+                case 'lastWeek': 
+                    startDate = new Date(today);
+                    startDate.setDate(today.getDate() - today.getDay() - 7);
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 6);
+                    break;
+                case 'thisMonth': 
+                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    break;
+                case 'lastMonth': 
+                    startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                    break;
+                default:
+                    return;
+            }
+
+            document.getElementById('order-date-from').value = formatDate(startDate);
+            document.getElementById('order-date-to').value = formatDate(endDate);
+            loadOrders(); 
+        }
+
+        // --- 修改 Modal 邏輯 (保持不變) ---
+        function openEditModal(key) {
+            const allOrders = getOrders();
+            const order = allOrders[key];
+
+            if (!order) {
+                alert('找不到該筆訂單！');
+                return;
+            }
+            
+            // 使用 getMasterEmployees 確保最新的員工姓名
+            const empInfo = getMasterEmployees().find(e => e.EmpID === order.EmpID) || { EmpName: '未知' };
+
+            document.getElementById('edit-order-key').value = key;
+            document.getElementById('edit-emp-info').textContent = `${order.EmpID} (${empInfo.EmpName})`;
+            document.getElementById('edit-meal-type').textContent = order.MealType === 'LUNCH' ? '午餐' : '晚餐';
+            
+            document.getElementById(`edit-diet-${order.DietType.toLowerCase()}`).checked = true;
+            document.getElementById(`edit-rice-${order.RicePortion.toLowerCase()}`).checked = true;
+            document.getElementById('edit-is-ordered').checked = !order.IsOrdered;
+
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        function saveEdit() {
+            const key = document.getElementById('edit-order-key').value;
+            const allOrders = getOrders();
+            const order = allOrders[key];
+
+            if (!order) {
+                alert('訂單資料遺失，無法修改！');
+                return;
+            }
+
+            const newDiet = document.querySelector('input[name="edit-diet"]:checked').value;
+            const newRice = document.querySelector('input[name="edit-rice"]:checked').value;
+            const isCancelled = document.getElementById('edit-is-ordered').checked;
+
+            order.DietType = newDiet;
+            order.RicePortion = newRice;
+            order.IsOrdered = !isCancelled;
+            order.AdminModified = true;
+
+            if (!order.IsOrdered) {
+                delete allOrders[key];
+                alert('訂單已由管理員成功取消。');
+            } else {
+                allOrders[key] = order;
+                alert('訂單已由管理員成功修改！');
+            }
+            
+            saveOrders(allOrders);
+            closeEditModal();
+            loadOrders();
+        }
+
+
+        // --- 匯出功能 (保持不變，但請注意它們應使用最新的員工資料或篩選邏輯來調整) ---
+        // 由於篇幅限制，匯出函式維持原樣。在實際應用中，exportEmployeeStats/exportDailyDetails 應使用 getMasterEmployees 來獲取最新的員工列表。
+
+        // --- 1. 匯出餐點總數量統計表 (維持不變) ---
+        function exportOrders() {
+            const dateFromStr = document.getElementById('order-date-from').value;
+            const dateToStr = document.getElementById('order-date-to').value;
+            
+            if (!dateFromStr || !dateToStr) {
+                alert('請先選擇完整的日期區間！');
+                return;
+            }
+
+            const dateFrom = new Date(dateFromStr + 'T00:00:00');
+            const dateTo = new Date(dateToStr + 'T00:00:00');
+            const allOrders = getOrders();
+
+            const counts = {};
+            let totalCount = 0;
+            
+            let currentDate = new Date(dateFrom);
+            while (currentDate <= dateTo) {
+                const dateKey = formatDate(currentDate);
+                
+                for (const key in allOrders) {
+                    const order = allOrders[key];
+                    const [orderDate, empId, mealType] = key.split('_');
+
+                    if (orderDate === dateKey && order.IsOrdered) {
+                        const countKey = `${orderDate}_${order.MealType}_${order.DietType}_${order.RicePortion}`;
+                        counts[countKey] = (counts[countKey] || 0) + 1;
+                        totalCount++;
+                    }
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+
+            if (totalCount === 0) {
+                alert(`在 ${dateFromStr} ~ ${dateToStr} 期間沒有訂單可供匯出！`);
+                return;
+            }
+
+            let csvContent = "日期,餐別,葷素,飯量,數量\n";
+            for (const [key, count] of Object.entries(counts)) {
+                const [date, meal, diet, rice] = key.split('_');
+                csvContent += `${date},${mealMap[meal]},${dietMap[diet]},${riceMap[rice]},${count}\n`;
+            }
+
+            const encodedUri = encodeURI(`\ufeff${csvContent}`); 
+            const link = document.createElement("a");
+            link.setAttribute("href", "data:text/csv;charset=utf-8," + encodedUri);
+            link.setAttribute("download", `Meal_Quantity_Report_${dateFromStr}_to_${dateToStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // --- 2. 匯出員工訂購數量統計表 (維持不變) ---
+        function exportEmployeeStats() {
+            const dateFromStr = document.getElementById('order-date-from').value;
+            const dateToStr = document.getElementById('order-date-to').value; 
+            if (!dateFromStr || !dateToStr) {
+                alert('請先選擇完整的日期區間！');
+                return;
+            }     
+            const dateFrom = new Date(dateFromStr + 'T00:00:00');
+            const dateTo = new Date(dateToStr + 'T00:00:00');
+            const allOrders = getOrders();
+            // 使用 getMasterEmployees 確保最新的員工資料
+            const currentEmployees = getMasterEmployees(); 
+            const employeeStats = {};
+            let grandTotalCount = 0;
+
+        
+            currentEmployees.forEach(emp => {
+                 employeeStats[emp.EmpID] = { 
+                    name: emp.EmpName, 
+                    lunchCount: 0, 
+                    dinnerCount: 0, 
+                    totalCount: 0 
+                };
+            });
+            
+            let currentDate = new Date(dateFrom);
+            while (currentDate <= dateTo) {
+                const dateKey = formatDate(currentDate);
+                
+                for (const key in allOrders) {
+                    const order = allOrders[key];
+                    const [orderDate, empId, mealType] = key.split('_');
+
+                    if (orderDate === dateKey && order.IsOrdered && employeeStats[empId]) {
+                        
+                        employeeStats[empId].totalCount += 1;
+                        grandTotalCount += 1;
+                        
+                        if (mealType === 'LUNCH') {
+                            employeeStats[empId].lunchCount += 1;
+                        } else if (mealType === 'DINNER') {
+                            employeeStats[empId].dinnerCount += 1;
+                        }
+                    }
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            if (grandTotalCount === 0) {
+                alert(`在 ${dateFromStr} ~ ${dateToStr} 期間沒有訂單可供匯出！`);
+                return;
+            }
+
+            let csvContent = "員工ID,姓名,午餐總數,晚餐總數,訂購總數\n";
+            const sortedEmpIds = Object.keys(employeeStats).sort();
+            
+            sortedEmpIds.forEach(id => {
+                const stats = employeeStats[id];
+                if (stats.totalCount > 0) { // 只匯出有訂購記錄的員工
+                    csvContent += `${id},${stats.name},${stats.lunchCount},${stats.dinnerCount},${stats.totalCount}\n`;
+                }
+            });
+
+            const encodedUri = encodeURI(`\ufeff${csvContent}`); 
+            const link = document.createElement("a");
+            link.setAttribute("href", "data:text/csv;charset=utf-8," + encodedUri);
+            link.setAttribute("download", `Employee_Order_Stats_${dateFromStr}_to_${dateToStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- 3. 匯出員工每日訂購明細表 (維持不變) ---
+        function exportDailyDetails() {
+            const dateFromStr = document.getElementById('order-date-from').value;
+            const dateToStr = document.getElementById('order-date-to').value;
+            
+            if (!dateFromStr || !dateToStr) {
+                alert('請先選擇完整的日期區間！');
+                return;
+            }
+            
+            const dateFrom = new Date(dateFromStr + 'T00:00:00');
+            const dateTo = new Date(dateToStr + 'T00:00:00');
+            const allOrders = getOrders();
+            let allDetails = [];
+            let totalDetailCount = 0;
+
+            const currentEmployees = getMasterEmployees(); 
+            const employeeMap = currentEmployees.reduce((map, emp) => {
+                map[emp.EmpID] = emp.EmpName;
+                return map;
+            }, {});
+
+            // 1. 篩選訂單明細
+            let currentDate = new Date(dateFrom);
+            while (currentDate <= dateTo) {
+                const dateKey = formatDate(currentDate);
+                
+                for (const key in allOrders) {
+                    const order = allOrders[key];
+                    const [orderDate, empId, mealType] = key.split('_');
+
+                    if (orderDate === dateKey && order.IsOrdered) {
+                        const empName = employeeMap[empId] || '未知';
+                        allDetails.push({
+                            Date: dateKey,
+                            EmpID: empId,
+                            EmpName: empName,
+                            MealType: mealMap[order.MealType],
+                            DietType: dietMap[order.DietType],
+                            RicePortion: riceMap[order.RicePortion],
+                            OrderTime: order.OrderTime || '',
+                            AdminModified: order.AdminModified ? '是' : '否'
+                        });
+                        totalDetailCount++;
+                    }
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            if (totalDetailCount === 0) {
+                alert(`在 ${dateFromStr} ~ ${dateToStr} 期間沒有訂購明細可供匯出！`);
+                return;
+            }
+
+            // 2. 整理 CSV 內容
+            let csvContent = "日期,員工ID,姓名,餐別,葷素,飯量,訂購時間,管理員修改\n";
+            
+            // 確保明細按日期排序
+            allDetails.sort((a, b) => a.Date.localeCompare(b.Date));
+
+            allDetails.forEach(detail => {
+                csvContent += [
+                    detail.Date,
+                    detail.EmpID,
+                    detail.EmpName,
+                    detail.MealType,
+                    detail.DietType,
+                    detail.RicePortion,
+                    detail.OrderTime,
+                    detail.AdminModified
+                ].join(',') + '\n';
+            });
+
+            // 3. 下載 CSV
+            const encodedUri = encodeURI(`\ufeff${csvContent}`); 
+            const link = document.createElement("a");
+            link.setAttribute("href", "data:text/csv;charset=utf-8," + encodedUri);
+            link.setAttribute("download", `Daily_Order_Details_${dateFromStr}_to_${dateToStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

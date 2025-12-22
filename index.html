@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工廠員工訂餐系統</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 樣式調整以符合需求 */
+        
+        /* [NEW] 調整頁面寬度 */
+        .container {
+            max-width: 800px; /* 增加最大寬度 */
+            margin: auto;
+            padding: 20px;
+        }
+        
+        #login-section input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        
+        /* --- 歷史紀錄區塊樣式 (維持不變) --- */
+        /* 移除原有的 #history-section 樣式，因為它已被移到頁籤內 */
+        .history-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .history-date-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .history-date-inputs label {
+            white-space: nowrap;
+        }
+        .history-quick-buttons {
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 5px;
+        }
+        .history-quick-buttons button {
+            padding: 5px 10px;
+            border: 1px solid #007bff;
+            background-color: #fff;
+            color: #007bff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .history-quick-buttons button:hover {
+            background-color: #e6f7ff;
+        }
+        #history-result table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        #history-result th, #history-result td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        #history-result th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        #history-result tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .history-record {
+            display: none;
+        }
+        /* --- END 歷史紀錄區塊樣式 --- */
+
+        /* [UPDATED] 頁籤樣式 - 記事本風格 */
+        .order-tabs {
+            display: flex;
+            margin-bottom: 0; 
+            border-bottom: 1px solid #ddd;
+        }
+        .tab-button {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-bottom: none; 
+            font-size: 16px;
+            font-weight: bold;
+            color: #333; /* 未選定：黑字 */
+            background-color: #f0f0f0; /* 未選定：淺灰底 */
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            margin-right: 2px; 
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .tab-button.active {
+            color: white; /* 選定：白字 */
+            background-color: #007bff; /* 選定：藍底 */
+            border-color: #007bff;
+            position: relative;
+            z-index: 1; 
+            margin-bottom: -1px; /* 覆蓋 order-tabs 的 border-bottom */
+        }
+        .tab-content {
+            display: none;
+            padding: 15px; /* 增加 padding */
+            border: 1px solid #ddd; /* 新增邊框 */
+            border-top: none; /* 上邊框被 active tab 覆蓋 */
+            min-height: 250px; /* 避免頁面跳動 */
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* [END UPDATED] 頁籤樣式 */
+
+        /* [NEW] 週訂單表格樣式調整：不換行 */
+        #weekly-order-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            table-layout: fixed; 
+        }
+        #weekly-order-table th, #weekly-order-table td {
+            border: 1px solid #ddd;
+            padding: 8px 4px; 
+            text-align: center;
+            vertical-align: top;
+        }
+        /* 強制表格儲存格內容不換行 */
+        #weekly-order-table td {
+            white-space: nowrap; 
+        }
+        #weekly-order-table th {
+            background-color: #f0f0f0;
+        }
+        
+        /* 調整選單寬度，讓兩個選單能在同一行顯示 */
+        #weekly-order-table select {
+            width: 48%; 
+            display: inline-block;
+            margin: 0 1%; 
+            padding: 5px 2px;
+            box-sizing: border-box; 
+        }
+        
+        .week-order-controls {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background-color: #f7f7f7;
+        }
+        .week-select-group {
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 15px;
+            align-items: center;
+        }
+        .week-select-group label {
+            white-space: nowrap;
+        }
+        .week-select-group select {
+             padding: 8px;
+             border: 1px solid #ccc;
+             border-radius: 4px;
+             flex-grow: 1; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>工廠員工訂餐系統</h2>
+        
+        <div id="login-section">
+            <input type="text" id="employee-id" placeholder="請輸入您的員工編號(93800)">
+            <input type="password" id="employee-password" placeholder="請輸入密碼(1234)"> 
+            <button class="btn btn-order" onclick="login()">登入</button>
+        </div>
+
+        <div id="order-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <p style="margin: 0;"><strong>歡迎您，<span id="employee-name"></span>！</strong></p>
+                <button class="btn btn-cancel" onclick="logout()" style="width: auto; padding: 5px 10px;">登出</button> 
+            </div>
+            
+            <div class="order-tabs">
+                <button class="tab-button active" onclick="openOrderTab(event, 'TodayOrder')">今日訂餐</button>
+                <button class="tab-button" onclick="openOrderTab(event, 'WeeklyOrder')">一週/當月訂餐</button>
+                <button class="tab-button" onclick="openOrderTab(event, 'HistoryOrder')"> 歷史紀錄查詢</button>
+            </div>
+            <div id="TodayOrder" class="tab-content active">
+                <div id="status-message" class="message"></div>
+                <p>
+                    今日訂餐截止時間：<strong style="color: red;">午餐 08:30 / 晚餐 16:00 (4:00 PM)</strong>
+                    <br>
+                    目前時間：<span id="current-time"></span>
+                </p>
+
+                <div class="meal-selection">
+                    <div class="meal-box lunch">
+                        <h3>午餐 (Lunch)</h3>
+                        <p id="lunch-status">尚未訂購</p>
+                        <button class="btn btn-order" id="order-lunch-btn" onclick="openModal('LUNCH')">我要訂購</button>
+                        <button class="btn btn-cancel" id="cancel-lunch-btn" onclick="cancelOrder('LUNCH')" style="display: none;">取消訂單</button>
+                    </div>
+
+                    <div class="meal-box dinner">
+                        <h3>晚餐 (Dinner)</h3>
+                        <p id="dinner-status">尚未訂購</p>
+                        <button class="btn btn-order" id="order-dinner-btn" onclick="openModal('DINNER')">我要訂購</button>
+                        <button class="btn btn-cancel" id="cancel-dinner-btn" onclick="cancelOrder('DINNER')" style="display: none;">取消訂單</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="WeeklyOrder" class="tab-content">
+                <h3>📅 預訂一週/當月(週一至週五)</h3>
+                <p class="alert-info" style="margin-bottom: 10px;">請注意：任何已截止的日期將無法修改，此處的設定將覆蓋該週您已有的訂單。</p>
+                
+                <div class="week-order-controls">
+                    <div class="week-select-group">
+                        <label for="week-select">選擇週別:</label>
+                        <select id="week-select" onchange="loadWeeklyOrderTable()">
+                            <option value="current">本週</option>
+                            <option value="next">下週</option>
+                            <option value="month">當月全部週別</option>
+                        </select>
+
+                        <label for="default-meal-type">預設餐別:</label>
+                        <select id="default-meal-type" onchange="applyDefaultOptions()">
+                            <option value="BOTH">午餐+晚餐</option>
+                            <option value="LUNCH">午餐</option>
+                            <option value="DINNER">晚餐</option>
+                        </select>
+                    </div>
+
+                    <div class="week-select-group">
+                        <label for="default-diet">預設葷素:</label>
+                        <select id="default-diet" onchange="applyDefaultOptions()">
+                            <option value="MEAT">葷食</option>
+                            <option value="VEG">素食</option>
+                        </select>
+
+                        <label for="default-rice">預設飯量:</label>
+                        <select id="default-rice" onchange="applyDefaultOptions()">
+                            <option value="FULL">全飯</option>
+                            <option value="HALF">半飯</option>
+                        </select>
+                    </div>
+                    <p class="alert-danger" id="weekly-warning" style="margin: 0; padding: 5px; display: none;"></p>
+                </div>
+
+                <table id="weekly-order-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">日期</th>
+                            <th style="width: 10%;">星期</th>
+                            <th style="width: 33%;">午餐選項</th>
+                            <th style="width: 33%;">晚餐選項</th>
+                            <th style="width: 6%;">截止</th>
+                        </tr>
+                    </thead>
+                    <tbody id="weekly-order-list">
+                        <tr><td colspan="5">請選擇週別以載入訂單...</td></tr>
+                    </tbody>
+                </table>
+                <button class="btn btn-order" style="margin-top: 20px; width: 100%;" onclick="saveWeeklyOrders()">✅ 確認儲存訂單</button>
+            </div>
+
+            <div id="HistoryOrder" class="tab-content">
+                <div class="history-controls">
+                    <div class="history-quick-buttons">
+                        <button onclick="setQuickRange('thisWeek')">本週</button>
+                        <button onclick="setQuickRange('lastWeek')">上週</button>
+                        <button onclick="setQuickRange('thisMonth')">本月</button>
+                        <button onclick="setQuickRange('lastMonth')">上月</button>
+                    </div>
+
+                    <div class="history-date-inputs">
+                        <label for="history-date-from">從:</label>
+                        <input type="date" id="history-date-from" style="flex: 1;">
+                        <label for="history-date-to">到:</label>
+                        <input type="date" id="history-date-to" style="flex: 1;">
+                        <button class="btn btn-order" style="width: 100px;" onclick="loadHistoryOrders()">查詢</button>
+                    </div>
+                </div>
+                
+                <div id="history-result">
+                    <p style="color: #666;">請輸入日期區間或使用快捷按鈕查詢。</p>
+                </div>
+            </div>
+            </div>
+    </div>
+
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">訂購餐點</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="option-group">
+                <label>選擇一：葷素</label>
+                <input type="radio" id="diet-meat" name="diet" value="MEAT" checked>
+                <label for="diet-meat">葷食</label>
+                <input type="radio" id="diet-veg" name="diet" value="VEG">
+                <label for="diet-veg">素食</label>
+            </div>
+
+            <div class="option-group">
+                <label>選擇二：飯量</label>
+                <input type="radio" id="rice-full" name="rice" value="FULL" checked>
+                <label for="rice-full">全飯</label>
+                <input type="radio" id="rice-half" name="rice" value="HALF">
+                <label for="rice-half">半飯</label>
+            </div>           
+
+            <button class="btn btn-order" onclick="confirmOrder()">確認訂購</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 核心變數與資料 ---
+        // [UPDATED] 更改為餐點專屬的截止時間
+        const LUNCH_CUTOFF_HOUR = 8;
+        const LUNCH_CUTOFF_MINUTE = 30;
+        const DINNER_CUTOFF_HOUR = 16; // 16 點 (4:00 PM)
+        const DINNER_CUTOFF_MINUTE = 0;
+        
+        let currentMealType = '';
+        let loggedInEmpId = null;
+
+        const employeeData = {
+            '93800': '林淑鈺',
+            '28109': '詹金璋',
+            '2400305': '王瀚章',
+        };
+        const DUMMY_PASSWORD = '1234'; 
+
+        const mealMap = { LUNCH: '午餐', DINNER: '晚餐' };
+        const dietMap = { MEAT: '葷食', VEG: '素食' };
+        const riceMap = { FULL: '全飯', HALF: '半飯' };
+
+        function getOrders() {
+            return JSON.parse(localStorage.getItem('mealOrders')) || {};
+        }
+
+        function saveOrders(orders) {
+            localStorage.setItem('mealOrders', JSON.stringify(orders));
+        }
+
+        // --- 輔助函式：日期格式化 ---
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+        
+        // 輔助函式：取得星期幾
+        function getDayOfWeek(date) {
+            const dayNames = ["日", "一", "二", "三", "四", "五", "六"];
+            return dayNames[date.getDay()];
+        }
+        
+        // 輔助函式：獲取當前時間代碼
+        function getCurrentTimeCode() {
+            const now = new Date();
+            return now.getHours() * 100 + now.getMinutes();
+        }
+        
+        // --- 登出功能 ---
+        function logout() {
+            loggedInEmpId = null; 
+            document.getElementById('employee-id').value = ''; 
+            document.getElementById('employee-password').value = ''; 
+            document.getElementById('order-section').style.display = 'none'; 
+            document.getElementById('login-section').style.display = 'block'; 
+            alert('您已成功登出。');
+            // 清空歷史紀錄顯示
+            document.getElementById('history-result').innerHTML = '<p style="color: #666;">請輸入日期區間或使用快捷按鈕查詢。</p>';
+        }
+
+        // --- 輔助函式：計算快捷日期區間 ---
+        function setQuickRange(period) {
+            const today = new Date();
+            let startDate, endDate;
+
+            switch (period) {
+                case 'thisWeek': 
+                    startDate = new Date(today);
+                    startDate.setDate(today.getDate() - today.getDay()); 
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 6);
+                    break;
+                case 'lastWeek': 
+                    startDate = new Date(today);
+                    startDate.setDate(today.getDate() - today.getDay() - 7);
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 6);
+                    break;
+                case 'thisMonth': 
+                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    break;
+                case 'lastMonth': 
+                    startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                    break;
+                default:
+                    return;
+            }
+
+            document.getElementById('history-date-from').value = formatDate(startDate);
+            document.getElementById('history-date-to').value = formatDate(endDate);
+            loadHistoryOrders(); 
+        }
+
+        // --- 時間控制 [UPDATED]：檢查特定餐別是否截止 ---
+        function checkCutoff(mealType, dateKey = formatDate(new Date())) {
+            const todayKey = formatDate(new Date());
+            // 只有在處理今天的訂單時才檢查時間截止
+            if (dateKey !== todayKey) return false; 
+
+            const timeCode = getCurrentTimeCode();
+            let cutoffTime;
+
+            if (mealType === 'LUNCH') {
+                cutoffTime = LUNCH_CUTOFF_HOUR * 100 + LUNCH_CUTOFF_MINUTE; // 830
+            } else if (mealType === 'DINNER') {
+                cutoffTime = DINNER_CUTOFF_HOUR * 100 + DINNER_CUTOFF_MINUTE; // 1600
+            } else {
+                return false; 
+            }
+
+            return timeCode > cutoffTime;
+        }
+
+        function updateTimeDisplay() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        setInterval(updateTimeDisplay, 1000); 
+
+        // --- 登入/身份確認 (含密碼) ---
+        function login() {
+            const empIdInput = document.getElementById('employee-id').value.toUpperCase().trim();
+            const passwordInput = document.getElementById('employee-password').value;
+
+            const employeeName = employeeData[empIdInput]; 
+
+            if (!employeeName) {
+                alert('員工編號錯誤或不存在！');
+                return;
+            }
+            if (passwordInput !== DUMMY_PASSWORD) { 
+                alert('密碼錯誤！請重新輸入。');
+                return;
+            }
+
+            // 驗證成功
+            loggedInEmpId = empIdInput;
+            document.getElementById('employee-name').textContent = employeeName;
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('order-section').style.display = 'block';
+            
+            // 預設切換到今日訂餐頁籤
+            document.getElementById('TodayOrder').style.display = 'block';
+            
+            // 首次登入時載入歷史紀錄預設區間，即使歷史頁籤未顯示
+            setQuickRange('thisMonth'); 
+
+            updateOrderUI();
+        }
+        
+        // [UPDATED] 頁籤切換邏輯
+        function openOrderTab(evt, tabName) {
+            let i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+            
+            if (tabName === 'WeeklyOrder') {
+                loadWeeklyOrderTable();
+            } else if (tabName === 'HistoryOrder') {
+                // 如果是切換到歷史紀錄頁籤，強制重新載入資料 (確保日期區間的資料是最新)
+                loadHistoryOrders();
+            } else {
+                updateOrderUI(); 
+            }
+        }
+
+
+        // --- UI 更新邏輯 (今日訂餐) [UPDATED]：檢查餐點專屬截止時間 ---
+        function updateOrderUI() {
+            if (!loggedInEmpId) return;
+
+            const today = formatDate(new Date());
+            const orders = getOrders();
+
+            const isLunchCutoff = checkCutoff('LUNCH');
+            const isDinnerCutoff = checkCutoff('DINNER');
+            const isAllCutoff = isLunchCutoff && isDinnerCutoff;
+
+            const statusMessage = document.getElementById('status-message');
+            
+            // 1. 處理截止狀態
+            if (isAllCutoff) {
+                statusMessage.className = 'message alert-danger';
+                statusMessage.textContent = '今日訂餐時間已截止 (午餐 08:30 / 晚餐 16:00)。您已無法修改訂單。';
+            } else if (isLunchCutoff && !isDinnerCutoff) {
+                statusMessage.className = 'message alert-warning';
+                statusMessage.textContent = '今日午餐訂餐已截止 (08:30)。晚餐訂餐仍開放至 16:00。';
+            } else { 
+                statusMessage.className = 'message alert-success';
+                statusMessage.textContent = '訂餐時間內，您可以隨時修改或取消。';
+            }
+            
+            // 2. 處理今日訂單顯示
+            ['LUNCH', 'DINNER'].forEach(meal => {
+                const key = `${today}_${loggedInEmpId}_${meal}`;
+                const order = orders[key];
+                const orderBtn = document.getElementById(`order-${meal.toLowerCase()}-btn`);
+                const cancelBtn = document.getElementById(`cancel-${meal.toLowerCase()}-btn`);
+                const statusP = document.getElementById(`${meal.toLowerCase()}-status`);
+                
+                const isMealCutoff = checkCutoff(meal); 
+                const isBeforeCutoff = !isMealCutoff;
+
+                if (order && order.IsOrdered) {
+                    const dietText = dietMap[order.DietType];
+                    const riceText = riceMap[order.RicePortion];
+                    statusP.textContent = `✅ 已訂購 (${dietText} / ${riceText})`;
+                    statusP.style.color = '#155724';
+                    orderBtn.style.display = 'none';
+                    // 只有在截止前才顯示取消按鈕
+                    if (isBeforeCutoff) cancelBtn.style.display = 'block'; else cancelBtn.style.display = 'none';
+                    
+                    // 按鈕禁用狀態
+                    orderBtn.disabled = true;
+                    cancelBtn.disabled = !isBeforeCutoff;
+                } else {
+                    statusP.textContent = '尚未訂購';
+                    statusP.style.color = '#333';
+                    // 只有在截止前才顯示訂購按鈕
+                    if (isBeforeCutoff) orderBtn.style.display = 'block'; else orderBtn.style.display = 'none';
+                    cancelBtn.style.display = 'none';
+                    
+                    // 按鈕禁用狀態
+                    orderBtn.disabled = !isBeforeCutoff;
+                    cancelBtn.disabled = true;
+                }
+            });
+        }
+
+        // --- 核心訂購/取消邏輯 [UPDATED]：檢查餐點專屬截止時間 ---
+        function openModal(mealType) {
+            if (checkCutoff(mealType)) { // [UPDATED]
+                alert('訂餐時間已截止！');
+                return;
+            }
+            currentMealType = mealType;
+            document.getElementById('modal-title').textContent = mealType === 'LUNCH' ? '訂購午餐選項' : '訂購晚餐選項';
+            document.getElementById('orderModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('orderModal').style.display = 'none';
+            currentMealType = '';
+        }
+
+        function confirmOrder() {
+            if (!loggedInEmpId) return;
+
+            const dietType = document.querySelector('input[name="diet"]:checked').value;
+            const ricePortion = document.querySelector('input[name="rice"]:checked').value;
+            const today = formatDate(new Date());
+            const key = `${today}_${loggedInEmpId}_${currentMealType}`;
+            const orders = getOrders();
+
+            orders[key] = {
+                EmpID: loggedInEmpId,
+                MealType: currentMealType,
+                DietType: dietType,
+                RicePortion: ricePortion,
+                IsOrdered: true,
+                OrderTime: new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                AdminModified: false
+            };
+
+            saveOrders(orders);
+            closeModal();
+            updateOrderUI();
+            alert(`訂購 ${currentMealType === 'LUNCH' ? '午餐' : '晚餐'} 成功！ (${dietMap[dietType]} / ${riceMap[ricePortion]})`);
+        }
+
+        function cancelOrder(mealType) {
+            if (!loggedInEmpId) return;
+            if (checkCutoff(mealType)) { // [UPDATED]
+                alert('訂餐時間已截止，無法取消！');
+                return;
+            }
+            if (!confirm(`確定要取消今日的 ${mealType === 'LUNCH' ? '午餐' : '晚餐'} 訂單嗎？`)) return;
+
+            const today = formatDate(new Date());
+            const key = `${today}_${loggedInEmpId}_${mealType}`;
+            const orders = getOrders();
+
+            if (orders[key]) {
+                delete orders[key]; 
+                saveOrders(orders);
+                updateOrderUI();
+                alert(`已取消 ${mealType === 'LUNCH' ? '午餐' : '晚餐'} 訂單。`);
+            }
+        }
+        
+        // --- [MODIFIED] 一週/當月訂餐功能：更新截止時間判斷 ---
+        
+        function getDatesRange(type) {
+            const today = new Date();
+            const dates = [];
+
+            if (type === 'current' || type === 'next') {
+                let start = new Date(today);
+                let day = start.getDay(); 
+                
+                let offset = day === 0 ? -6 : 1 - day; // 算到本週一
+                
+                if (type === 'next') {
+                    offset += 7; 
+                }
+                
+                start.setDate(today.getDate() + offset);
+                
+                for (let i = 0; i < 5; i++) { 
+                    const date = new Date(start);
+                    date.setDate(start.getDate() + i);
+                    dates.push(date);
+                }
+            } else if (type === 'month') {
+                // 獲取當月的第一天
+                const year = today.getFullYear();
+                const month = today.getMonth();
+                let currentDate = new Date(year, month, 1);
+                
+                while (currentDate.getMonth() === month) {
+                    const dayOfWeek = currentDate.getDay(); // 0=日, 6=六
+                    // 只包含週一 (1) 到週五 (5)
+                    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                        dates.push(new Date(currentDate));
+                    }
+                    // 移至下一天
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            }
+            return dates;
+        }
+
+        function loadWeeklyOrderTable() {
+            if (!loggedInEmpId) return;
+            
+            const weekType = document.getElementById('week-select').value;
+            const datesRange = getDatesRange(weekType);
+            const listBody = document.getElementById('weekly-order-list');
+            listBody.innerHTML = '';
+            const allOrders = getOrders();
+            const todayKey = formatDate(new Date());
+            const warningEl = document.getElementById('weekly-warning');
+            
+            warningEl.style.display = 'none';
+
+            if (datesRange.length === 0) {
+                 listBody.innerHTML = '<tr><td colspan="5">無工作日資料...</td></tr>';
+                 return;
+            }
+
+            datesRange.forEach(date => {
+                const dateKey = formatDate(date);
+                const dayOfWeek = getDayOfWeek(date);
+                
+                // 判斷日期是否已過
+                const dateOnly = new Date(dateKey + 'T00:00:00');
+                const todayOnly = new Date(todayKey + 'T00:00:00');
+                const isPastDate = dateOnly < todayOnly; 
+                
+                // 判斷今日的午餐/晚餐是否截止 (包含過去日期)
+                const isLunchCutoff = isPastDate || checkCutoff('LUNCH', dateKey); 
+                const isDinnerCutoff = isPastDate || checkCutoff('DINNER', dateKey); 
+
+                // 綜合判斷，用於行背景和警告訊息
+                const isCutoff = isLunchCutoff && isDinnerCutoff; 
+                
+                if (dateKey === todayKey) {
+                    let warningText = '';
+                    if (isLunchCutoff && isDinnerCutoff) {
+                        warningText = '⚠️ 今日午餐和晚餐訂餐時間皆已截止，無法修改今日的訂單。';
+                    } else if (isLunchCutoff) {
+                        warningText = '⚠️ 今日午餐訂餐已截止 (08:30)，但晚餐訂單仍可修改。';
+                    }
+                    if (warningText) {
+                        warningEl.textContent = warningText;
+                        warningEl.style.display = 'block';
+                    }
+                }
+
+                // 獲取現有訂單狀態
+                const lunchKey = `${dateKey}_${loggedInEmpId}_LUNCH`;
+                const dinnerKey = `${dateKey}_${loggedInEmpId}_DINNER`;
+                const existingLunch = allOrders[lunchKey];
+                const existingDinner = allOrders[dinnerKey];
+                
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-date', dateKey);
+                tr.style.backgroundColor = isCutoff ? '#fff0f0' : 'white'; 
+                
+                // Disabled attribute now depends on meal type cutoff
+                const disabledLunchAttr = isLunchCutoff ? 'disabled' : '';
+                const disabledDinnerAttr = isDinnerCutoff ? 'disabled' : '';
+                
+                // Cutoff text now reflects the status more generally
+                const cutoffText = isCutoff ? '✅' : 
+                                   (isLunchCutoff || isDinnerCutoff) ? '部分' : '❌'; // Updated cutoff status text
+
+                
+                const generateOptions = (mealType, existingOrder) => {
+                    const existingDiet = existingOrder ? existingOrder.DietType : '';
+                    const existingRice = existingOrder ? existingOrder.RicePortion : '';
+
+                    // 使用餐別專屬的禁用屬性
+                    const disabledAttr = mealType === 'LUNCH' ? disabledLunchAttr : disabledDinnerAttr;
+
+                    const dietHtml = `
+                        <select name="${mealType.toLowerCase()}-diet-${dateKey}" class="week-diet form-control" ${disabledAttr}>
+                            <option value="">未訂購/取消</option>
+                            <option value="MEAT" ${existingDiet === 'MEAT' ? 'selected' : ''}>葷食</option>
+                            <option value="VEG" ${existingDiet === 'VEG' ? 'selected' : ''}>素食</option>
+                        </select>
+                    `;
+                    const riceHtml = `
+                        <select name="${mealType.toLowerCase()}-rice-${dateKey}" class="week-rice form-control" ${disabledAttr}>
+                            <option value="">--</option>
+                            <option value="FULL" ${existingRice === 'FULL' ? 'selected' : ''}>全飯</option>
+                            <option value="HALF" ${existingRice === 'HALF' ? 'selected' : ''}>半飯</option>
+                        </select>
+                    `;
+                    return dietHtml + riceHtml;
+                };
+
+                tr.innerHTML = `
+                    <td>${dateKey}</td>
+                    <td>(週${dayOfWeek})</td>
+                    <td>${generateOptions('LUNCH', existingLunch)}</td>
+                    <td>${generateOptions('DINNER', existingDinner)}</td>
+                    <td>${cutoffText}</td>
+                `;
+                listBody.appendChild(tr);
+            });
+            
+            applyDefaultOptions();
+        }
+
+        // 套用預設選項到表格 (僅影響選項為 '-- 未訂購' 的欄位)
+        function applyDefaultOptions() {
+            const defaultDiet = document.getElementById('default-diet').value;
+            const defaultRice = document.getElementById('default-rice').value;
+            const mealTypeSelect = document.getElementById('default-meal-type').value;
+
+            document.querySelectorAll('#weekly-order-list tr').forEach(row => {
+                const dateKey = row.getAttribute('data-date');
+                const lunchDietEl = row.querySelector(`select[name="lunch-diet-${dateKey}"]`);
+                
+                if (lunchDietEl && lunchDietEl.disabled) return; 
+                
+                const processMeal = (mealType, defaultState) => {
+                    const dietEl = row.querySelector(`select[name="${mealType.toLowerCase()}-diet-${dateKey}"]`);
+                    const riceEl = row.querySelector(`select[name="${mealType.toLowerCase()}-rice-${dateKey}"]`);
+                    
+                    if (!dietEl || !riceEl) return;
+                    
+                    if (defaultState) {
+                        if (dietEl.value === '') {
+                            dietEl.value = defaultDiet;
+                            riceEl.value = defaultRice;
+                        }
+                    } else {
+                        if (dietEl.value !== '') {
+                             if ((mealType === 'LUNCH' && mealTypeSelect === 'DINNER') || 
+                                 (mealType === 'DINNER' && mealTypeSelect === 'LUNCH')) {
+                                dietEl.value = '';
+                                riceEl.value = '';
+                            }
+                        }
+                    }
+                };
+
+                const lunchDefault = (mealTypeSelect === 'LUNCH' || mealTypeSelect === 'BOTH');
+                processMeal('LUNCH', lunchDefault);
+
+                const dinnerDefault = (mealTypeSelect === 'DINNER' || mealTypeSelect === 'BOTH');
+                processMeal('DINNER', dinnerDefault);
+            });
+        }
+        
+        function saveWeeklyOrders() {
+            if (!loggedInEmpId) return;
+
+            if (!confirm('確認儲存所選的一週/當月訂單嗎？這將會覆蓋您原有的訂單，並忽略已截止的日期。')) return;
+
+            let allOrders = getOrders();
+            let processedCount = 0;
+            const nowTime = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            document.querySelectorAll('#weekly-order-list tr').forEach(row => {
+                const dateKey = row.getAttribute('data-date');
+                
+                // 移除不準確的總體行檢查，依賴於每個餐別的選單是否禁用
+
+                const processOrder = (mealType) => {
+                    const dietEl = row.querySelector(`select[name="${mealType.toLowerCase()}-diet-${dateKey}"]`);
+                    const riceEl = row.querySelector(`select[name="${mealType.toLowerCase()}-rice-${dateKey}"]`);
+                    
+                    // 如果選單不存在或已被禁用 (即已截止)，則跳過該餐別
+                    if (!dietEl || dietEl.disabled) return; 
+                    
+                    if (dietEl.value && riceEl.value) {
+                        allOrders[key] = {
+                            EmpID: loggedInEmpId,
+                            MealType: mealType,
+                            DietType: dietEl.value,
+                            RicePortion: riceEl.value,
+                            IsOrdered: true,
+                            OrderTime: allOrders[key] ? allOrders[key].OrderTime : nowTime, 
+                            AdminModified: false
+                        };
+                        processedCount++;
+                    } else {
+                        // 如果選單是 "未訂購/取消" 且本地儲存中有該訂單，則執行取消
+                        const key = `${dateKey}_${loggedInEmpId}_${mealType}`;
+                        if (allOrders[key]) {
+                            delete allOrders[key];
+                            processedCount++;
+                        }
+                    }
+                };
+
+                processOrder('LUNCH');
+                processOrder('DINNER');
+            });
+
+            saveOrders(allOrders);
+            loadWeeklyOrderTable(); 
+            updateOrderUI(); 
+            alert(`一週/當月訂單儲存成功！共處理 ${processedCount} 筆訂單/取消操作 (已排除已截止日期)。`);
+        }
+        
+        // --- 載入歷史訂單功能 (區間查詢) - [維持不變] ---
+        function loadHistoryOrders() {
+            if (!loggedInEmpId) return;
+            
+            const dateFromStr = document.getElementById('history-date-from').value;
+            const dateToStr = document.getElementById('history-date-to').value;
+
+            const resultDiv = document.getElementById('history-result');
+
+            if (!dateFromStr || !dateToStr) {
+                // 如果日期區間未設定，則不執行查詢，避免錯誤
+                resultDiv.innerHTML = `<p style="color: #666;">請輸入日期區間或使用快捷按鈕查詢。</p>`;
+                return;
+            }
+            
+            const dateFrom = new Date(dateFromStr + 'T00:00:00');
+            const dateTo = new Date(dateToStr + 'T00:00:00');
+            const orders = getOrders();
+            let allRecords = [];
+            
+            if (dateFrom > dateTo) {
+                 resultDiv.innerHTML = `<p style="color: red;">起始日期不能晚於結束日期！</p>`;
+                 return;
+            }
+
+            let currentDate = new Date(dateFrom);
+            while (currentDate <= dateTo) {
+                const dateKey = formatDate(currentDate);
+                const lunchKey = `${dateKey}_${loggedInEmpId}_LUNCH`;
+                const dinnerKey = `${dateKey}_${loggedInEmpId}_DINNER`;
+                
+                if (orders[lunchKey] && orders[lunchKey].IsOrdered) {
+                    allRecords.push({ dateKey, type: 'LUNCH', order: orders[lunchKey] });
+                }
+                if (orders[dinnerKey] && orders[dinnerKey].IsOrdered) {
+                    allRecords.push({ dateKey, type: 'DINNER', order: orders[dinnerKey] });
+                }
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            if (allRecords.length === 0) {
+                resultDiv.innerHTML = `<p style="color: #999;">在 ${dateFromStr} 至 ${dateToStr} 期間沒有訂購紀錄。</p>`;
+            } else {
+                let tableHTML = `
+                    <h4>總共查詢到 ${allRecords.length} 筆訂單。訂單明細:</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>訂購日期</th>
+                                <th>餐別</th>
+                                <th>餐點選項</th>
+                                <th>訂購時間</th>
+                                <th>管理員修改</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                allRecords.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+
+                allRecords.forEach(item => {
+                    const order = item.order;
+                    const mealText = mealMap[item.type];
+                    const optionText = `${dietMap[order.DietType]} (${riceMap[order.RicePortion]})`;
+                    const adminModifiedText = order.AdminModified ? '是' : '否';
+
+                    tableHTML += `
+                        <tr>
+                            <td>${item.dateKey}</td>
+                            <td>${mealText}</td>
+                            <td>${optionText}</td>
+                            <td>${order.OrderTime || 'N/A'}</td>
+                            <td>${adminModifiedText}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+                resultDiv.innerHTML = tableHTML;
+            }
+        }
+
+        // 初始化
+        updateTimeDisplay();
+    </script>
+</body>
+</html>

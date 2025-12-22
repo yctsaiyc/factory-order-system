@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理員登入</title>
+    <link rel="stylesheet" href="styles.css"> 
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 80px auto;
+            padding: 30px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .login-container input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .login-container h2 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>🔒 管理員系統登入</h2>
+        <input type="text" id="admin-account" placeholder="管理員帳號 (admin)">
+        <input type="password" id="admin-password" placeholder="密碼 (1234)">
+        <button class="btn btn-order" onclick="adminLogin()" style="width: 100%;">登入系統</button>
+    </div>
+
+    <script>
+        const ADMIN_ACCOUNT = 'admin';
+        const ADMIN_PASSWORD = '1234';
+
+        function adminLogin() {
+            const account = document.getElementById('admin-account').value.trim();
+            const password = document.getElementById('admin-password').value;
+
+            if (account === ADMIN_ACCOUNT && password === ADMIN_PASSWORD) {
+                // 設定管理員登入狀態，使用 SessionStorage (避免瀏覽器關閉後仍然保留)
+                sessionStorage.setItem('isAdminLoggedIn', 'true');
+                window.location.href = 'admin_dashboard.html';
+            } else {
+                alert('帳號或密碼錯誤！');
+            }
+        }
+        
+        // 如果已經登入，直接跳轉
+        if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
+            window.location.href = 'admin_dashboard.html';
+        }
+    </script>
+</body>
+</html>
