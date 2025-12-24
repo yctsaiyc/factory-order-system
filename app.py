@@ -4,13 +4,13 @@ Flask Web API 介面
 提供RESTful API給前端使用
 """
 
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, send_from_directory
 from flask_cors import CORS
 from FoodOrder import FoodOrderSystem, MealType, DietType, RicePortion
 from datetime import datetime, timedelta
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.', static_url_path='')
 app.secret_key = os.urandom(24)  # 用於session管理
 CORS(app)  # 允許跨域請求
 
@@ -19,6 +19,36 @@ system = FoodOrderSystem()
 
 
 # ========== 根路由和API信息 ==========
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    """提供靜態文件服務"""
+    return send_from_directory('.', filename)
+
+
+@app.route('/employee')
+def employee_page():
+    """員工訂餐頁面"""
+    return send_from_directory('.', 'index.html')
+
+
+@app.route('/admin/login')
+def admin_login_page():
+    """管理員登入頁面"""
+    return send_from_directory('.', 'admin_login.html')
+
+
+@app.route('/admin')
+def admin_page():
+    """管理員後台頁面"""
+    return send_from_directory('.', 'admin_dashboard.html')
+
+
+@app.route('/test')
+def test_page():
+    """API 測試頁面"""
+    return send_from_directory('.', 'test_page.html')
+
 
 @app.route('/')
 def index():
@@ -206,6 +236,19 @@ def index():
                 • 所有 API 請求都需要正確的 Content-Type: application/json<br>
                 • 員工和管理員功能需要先登入，使用 session 管理<br>
                 • 詳細的 API 文檔請參考 README.md 文件
+            </div>
+            
+            <div class="info" style="margin-top: 30px; background-color: #fff3cd; border-color: #ffeaa7;">
+                <strong>🧪 測試頁面：</strong><br>
+                <a href="/test" style="color: #007bff; font-weight: bold;">點擊這裡訪問 API 測試頁面</a><br>
+                <small>可以在瀏覽器中直接測試所有 API 功能</small>
+            </div>
+            
+            <div class="info" style="margin-top: 20px;">
+                <strong>📄 前端頁面：</strong><br>
+                • <a href="/employee">員工訂餐頁面</a> (需要連接 API)<br>
+                • <a href="/admin/login">管理員登入頁面</a> (需要連接 API)<br>
+                • <a href="/admin">管理員後台頁面</a> (需要連接 API)
             </div>
         </div>
     </body>

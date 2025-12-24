@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 測試頁面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f4f7f9;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        input, select, button {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input[type="text"], input[type="password"] {
+            width: 200px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.danger {
+            background-color: #dc3545;
+        }
+        button.danger:hover {
+            background-color: #c82333;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .status.logged-in {
+            background-color: #28a745;
+            color: white;
+        }
+        .status.logged-out {
+            background-color: #6c757d;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 API 測試頁面</h1>
+        <p>此頁面用於測試後端 API 功能</p>
+        
+        <div id="session-status" class="status logged-out">未登入</div>
+        
+        <!-- 員工登入測試 -->
+        <div class="section">
+            <h2>👤 員工登入測試</h2>
+            <input type="text" id="emp-id" placeholder="員工編號 (93800)" value="93800">
+            <input type="password" id="emp-password" placeholder="密碼 (1234)" value="1234">
+            <button onclick="employeeLogin()">員工登入</button>
+            <button onclick="employeeLogout()" class="danger">登出</button>
+            <div id="employee-login-result" class="result" style="display:none;"></div>
+        </div>
+        
+        <!-- 今日訂單查詢 -->
+        <div class="section">
+            <h2>📋 今日訂單查詢</h2>
+            <button onclick="getTodayOrders()">查詢今日訂單</button>
+            <div id="today-orders-result" class="result" style="display:none;"></div>
+        </div>
+        
+        <!-- 創建訂單 -->
+        <div class="section">
+            <h2>➕ 創建訂單</h2>
+            <select id="meal-type">
+                <option value="LUNCH">午餐</option>
+                <option value="DINNER">晚餐</option>
+            </select>
+            <select id="diet-type">
+                <option value="MEAT">葷食</option>
+                <option value="VEG">素食</option>
+            </select>
+            <select id="rice-portion">
+                <option value="FULL">全飯</option>
+                <option value="HALF">半飯</option>
+            </select>
+            <button onclick="createOrder()">創建訂單</button>
+            <div id="create-order-result" class="result" style="display:none;"></div>
+        </div>
+        
+        <!-- 取消訂單 -->
+        <div class="section">
+            <h2>❌ 取消訂單</h2>
+            <select id="cancel-meal-type">
+                <option value="LUNCH">午餐</option>
+                <option value="DINNER">晚餐</option>
+            </select>
+            <button onclick="cancelOrder()" class="danger">取消訂單</button>
+            <div id="cancel-order-result" class="result" style="display:none;"></div>
+        </div>
+        
+        <!-- 管理員登入測試 -->
+        <div class="section">
+            <h2>👨‍💼 管理員登入測試</h2>
+            <input type="text" id="admin-account" placeholder="管理員帳號 (admin)" value="admin">
+            <input type="password" id="admin-password" placeholder="密碼 (1234)" value="1234">
+            <button onclick="adminLogin()">管理員登入</button>
+            <button onclick="adminLogout()" class="danger">登出</button>
+            <div id="admin-login-result" class="result" style="display:none;"></div>
+        </div>
+        
+        <!-- 查詢部門 -->
+        <div class="section">
+            <h2>🏢 查詢部門列表</h2>
+            <button onclick="getDepartments()">查詢部門</button>
+            <div id="departments-result" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        
+        // 檢查 Session 狀態
+        async function checkSession() {
+            try {
+                const response = await fetch(`${API_BASE}/check-session`);
+                const data = await response.json();
+                const statusEl = document.getElementById('session-status');
+                
+                if (data.success) {
+                    if (data.is_admin) {
+                        statusEl.textContent = `管理員已登入 (${data.account})`;
+                        statusEl.className = 'status logged-in';
+                    } else {
+                        statusEl.textContent = `員工已登入 (${data.emp_id} - ${data.emp_name})`;
+                        statusEl.className = 'status logged-in';
+                    }
+                } else {
+                    statusEl.textContent = '未登入';
+                    statusEl.className = 'status logged-out';
+                }
+            } catch (error) {
+                console.error('檢查 Session 失敗:', error);
+            }
+        }
+        
+        // 員工登入
+        async function employeeLogin() {
+            const empId = document.getElementById('emp-id').value;
+            const password = document.getElementById('emp-password').value;
+            const resultEl = document.getElementById('employee-login-result');
+            
+            try {
+                const response = await fetch(`${API_BASE}/employee/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        emp_id: empId,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                resultEl.style.display = 'block';
+                resultEl.className = 'result ' + (data.success ? 'success' : 'error');
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                
+                if (data.success) {
+                    checkSession();
+                }
+            } catch (error) {
+                resultEl.style.display = 'block';
+                resultEl.className = 'result error';
+                resultEl.textContent = '錯誤: ' + error.message;
+            }
+        }
+        
+        // 員工登出
+        async function employeeLogout() {
+            try {
+                const response = await fetch(`${API_BASE}/employee/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                alert(data.message || '登出成功');
+                checkSession();
+            } catch (error) {
+                alert('登出失敗: ' + error.message);
+            }
+        }
+        
+        // 查詢今日訂單
+        async function getTodayOrders() {
+            const resultEl = document.getElementById('today-orders-result');
+            
+            try {
+                const response = await fetch(`${API_BASE}/employee/today-orders`, {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                resultEl.style.display = 'block';
+                resultEl.className = 'result ' + (data.success ? 'success' : 'error');
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultEl.style.display = 'block';
+                resultEl.className = 'result error';
+                resultEl.textContent = '錯誤: ' + error.message;
+            }
+        }
+        
+        // 創建訂單
+        async function createOrder() {
+            const mealType = document.getElementById('meal-type').value;
+            const dietType = document.getElementById('diet-type').value;
+            const ricePortion = document.getElementById('rice-portion').value;
+            const resultEl = document.getElementById('create-order-result');
+            
+            try {
+                const response = await fetch(`${API_BASE}/employee/order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        meal_type: mealType,
+                        diet_type: dietType,
+                        rice_portion: ricePortion
+                    })
+                });
+                
+                const data = await response.json();
+                resultEl.style.display = 'block';
+                resultEl.className = 'result ' + (data.success ? 'success' : 'error');
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                
+                if (data.success) {
+                    // 自動刷新今日訂單
+                    setTimeout(getTodayOrders, 500);
+                }
+            } catch (error) {
+                resultEl.style.display = 'block';
+                resultEl.className = 'result error';
+                resultEl.textContent = '錯誤: ' + error.message;
+            }
+        }
+        
+        // 取消訂單
+        async function cancelOrder() {
+            const mealType = document.getElementById('cancel-meal-type').value;
+            const resultEl = document.getElementById('cancel-order-result');
+            
+            if (!confirm(`確定要取消${mealType === 'LUNCH' ? '午餐' : '晚餐'}訂單嗎？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/employee/cancel-order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        meal_type: mealType
+                    })
+                });
+                
+                const data = await response.json();
+                resultEl.style.display = 'block';
+                resultEl.className = 'result ' + (data.success ? 'success' : 'error');
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                
+                if (data.success) {
+                    // 自動刷新今日訂單
+                    setTimeout(getTodayOrders, 500);
+                }
+            } catch (error) {
+                resultEl.style.display = 'block';
+                resultEl.className = 'result error';
+                resultEl.textContent = '錯誤: ' + error.message;
+            }
+        }
+        
+        // 管理員登入
+        async function adminLogin() {
+            const account = document.getElementById('admin-account').value;
+            const password = document.getElementById('admin-password').value;
+            const resultEl = document.getElementById('admin-login-result');
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        account: account,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                resultEl.style.display = 'block';
+                resultEl.className = 'result ' + (data.success ? 'success' : 'error');
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                
+                if (data.success) {
+                    checkSession();
+                }
+            } catch (error) {
+                resultEl.style.display = 'block';
+                resultEl.className = 'result error';
+                resultEl.textContent = '錯誤: ' + error.message;
+            }
+        }
+        
+        // 管理員登出
+        async function adminLogout() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                alert(data.message || '登出成功');
+                checkSession();
+            } catch (error) {
+                alert('登出失敗: ' + error.message);
+            }
+        }
+        
+        // 查詢部門
+        async function getDepartments() {
+            const resultEl = document.getElementById('departments-result');
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/departments`, {
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                resultEl.style.display = 'block';
+                resultEl.className = 'result ' + (data.success ? 'success' : 'error');
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultEl.style.display = 'block';
+                resultEl.className = 'result error';
+                resultEl.textContent = '錯誤: ' + error.message;
+            }
+        }
+        
+        // 頁面載入時檢查 Session
+        window.onload = function() {
+            checkSession();
+        };
+    </script>
+</body>
+</html>
+
