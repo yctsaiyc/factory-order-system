@@ -18,6 +18,202 @@ CORS(app)  # 允許跨域請求
 system = FoodOrderSystem()
 
 
+# ========== 根路由和API信息 ==========
+
+@app.route('/')
+def index():
+    """根路由 - API信息页面"""
+    html = """
+    <!DOCTYPE html>
+    <html lang="zh-TW">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>工廠訂便當系統 - API服務</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 900px;
+                margin: 50px auto;
+                padding: 20px;
+                background-color: #f4f7f9;
+            }
+            .container {
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                color: #007bff;
+                border-bottom: 3px solid #007bff;
+                padding-bottom: 10px;
+            }
+            h2 {
+                color: #333;
+                margin-top: 30px;
+            }
+            .api-list {
+                background-color: #f8f9fa;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
+            .method {
+                display: inline-block;
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-weight: bold;
+                font-size: 0.9em;
+                margin-right: 10px;
+            }
+            .method.get { background-color: #28a745; color: white; }
+            .method.post { background-color: #007bff; color: white; }
+            .method.put { background-color: #ffc107; color: black; }
+            .method.delete { background-color: #dc3545; color: white; }
+            code {
+                background-color: #e9ecef;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-family: 'Courier New', monospace;
+            }
+            .info {
+                background-color: #d1ecf1;
+                border: 1px solid #bee5eb;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 20px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🍜 工廠訂便當系統 API 服務</h1>
+            
+            <div class="info">
+                <strong>服務狀態：</strong> ✅ 運行中<br>
+                <strong>API 基礎路徑：</strong> <code>http://localhost:5000/api</code>
+            </div>
+            
+            <h2>📋 員工端 API</h2>
+            
+            <div class="api-list">
+                <span class="method post">POST</span>
+                <code>/api/employee/login</code> - 員工登入
+            </div>
+            
+            <div class="api-list">
+                <span class="method post">POST</span>
+                <code>/api/employee/logout</code> - 員工登出
+            </div>
+            
+            <div class="api-list">
+                <span class="method get">GET</span>
+                <code>/api/employee/today-orders</code> - 獲取今日訂單
+            </div>
+            
+            <div class="api-list">
+                <span class="method post">POST</span>
+                <code>/api/employee/order</code> - 創建訂單
+            </div>
+            
+            <div class="api-list">
+                <span class="method post">POST</span>
+                <code>/api/employee/cancel-order</code> - 取消訂單
+            </div>
+            
+            <div class="api-list">
+                <span class="method get">GET</span>
+                <code>/api/employee/weekly-orders?week_type=current</code> - 獲取一週訂單
+            </div>
+            
+            <div class="api-list">
+                <span class="method post">POST</span>
+                <code>/api/employee/weekly-orders</code> - 批量保存一週訂單
+            </div>
+            
+            <div class="api-list">
+                <span class="method get">GET</span>
+                <code>/api/employee/history?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD</code> - 獲取歷史訂單
+            </div>
+            
+            <h2>👨‍💼 管理員端 API</h2>
+            
+            <div class="api-list">
+                <span class="method post">POST</span>
+                <code>/api/admin/login</code> - 管理員登入
+            </div>
+            
+            <div class="api-list">
+                <span class="method get">GET</span>
+                <code>/api/admin/departments</code> - 獲取部門列表
+            </div>
+            
+            <div class="api-list">
+                <span class="method post">POST</span>
+                <code>/api/admin/departments</code> - 新增/修改部門
+            </div>
+            
+            <div class="api-list">
+                <span class="method delete">DELETE</span>
+                <code>/api/admin/departments/&lt;oid&gt;</code> - 刪除部門
+            </div>
+            
+            <div class="api-list">
+                <span class="method get">GET</span>
+                <code>/api/admin/employees</code> - 獲取員工列表
+            </div>
+            
+            <div class="api-list">
+                <span class="method post">POST</span>
+                <code>/api/admin/employees</code> - 新增/修改員工
+            </div>
+            
+            <div class="api-list">
+                <span class="method delete">DELETE</span>
+                <code>/api/admin/employees/&lt;oid&gt;</code> - 刪除員工
+            </div>
+            
+            <div class="api-list">
+                <span class="method get">GET</span>
+                <code>/api/admin/windows</code> - 獲取窗口列表
+            </div>
+            
+            <div class="api-list">
+                <span class="method post">POST</span>
+                <code>/api/admin/windows</code> - 新增/修改窗口
+            </div>
+            
+            <div class="api-list">
+                <span class="method get">GET</span>
+                <code>/api/admin/orders?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD</code> - 查詢訂單
+            </div>
+            
+            <div class="api-list">
+                <span class="method put">PUT</span>
+                <code>/api/admin/orders</code> - 修改訂單
+            </div>
+            
+            <h2>🔍 通用 API</h2>
+            
+            <div class="api-list">
+                <span class="method get">GET</span>
+                <code>/api/check-session</code> - 檢查session狀態
+            </div>
+            
+            <div class="info" style="margin-top: 30px;">
+                <strong>💡 提示：</strong><br>
+                • 所有 API 請求都需要正確的 Content-Type: application/json<br>
+                • 員工和管理員功能需要先登入，使用 session 管理<br>
+                • 詳細的 API 文檔請參考 README.md 文件
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
+
 # ========== 輔助函數 ==========
 
 def get_meal_type_name(meal_type: str) -> str:
