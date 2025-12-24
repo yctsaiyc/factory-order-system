@@ -1,5 +1,5 @@
 # 工廠訂便當系統
-_Exported on 12/24/2025 at 16:27:48 GMT+8 from Cursor (2.2.27)_
+_Exported on 12/24/2025 at 17:18:11 GMT+8 from Cursor (2.2.27)_
 
 ---
 
@@ -9332,5 +9332,5047 @@ http://localhost:5000/
 
 ```plaintext
    http://localhost:5000/test
+```
+
+---
+
+**User**
+
+後端改成C#，使用.net 7.0，py 檔全部刪掉
+
+---
+
+**Cursor**
+
+
+查看当前项目结构，准备创建 .NET 7.0 后端并删除 Python 文件：
+
+
+
+创建 .NET 7.0 后端项目。先创建项目结构和核心文件：
+
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>FoodOrderSystem</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="7.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>
+
+```
+
+```csharp
+namespace FoodOrderSystem.Models;
+
+/// <summary>
+/// 餐別類型
+/// </summary>
+public enum MealType
+{
+    /// <summary>
+    /// 午餐
+    /// </summary>
+    LUNCH,
+    
+    /// <summary>
+    /// 晚餐
+    /// </summary>
+    DINNER
+}
+
+/// <summary>
+/// 葷素類型
+/// </summary>
+public enum DietType
+{
+    /// <summary>
+    /// 葷食
+    /// </summary>
+    MEAT,
+    
+    /// <summary>
+    /// 素食
+    /// </summary>
+    VEG
+}
+
+/// <summary>
+/// 飯量類型
+/// </summary>
+public enum RicePortion
+{
+    /// <summary>
+    /// 全飯
+    /// </summary>
+    FULL,
+    
+    /// <summary>
+    /// 半飯
+    /// </summary>
+    HALF
+}
+
+```
+
+```csharp
+namespace FoodOrderSystem.Models;
+
+/// <summary>
+/// 部門主檔
+/// </summary>
+public class Department
+{
+    public int OID { get; set; }
+    public string DeptCode { get; set; } = string.Empty;
+    public string DeptName { get; set; } = string.Empty;
+}
+
+```
+
+```csharp
+namespace FoodOrderSystem.Models;
+
+/// <summary>
+/// 員工主檔
+/// </summary>
+public class Employee
+{
+    public int OID { get; set; }
+    public string EmpID { get; set; } = string.Empty;
+    public string EmpName { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string DeptCode { get; set; } = string.Empty;
+}
+
+```
+
+```csharp
+namespace FoodOrderSystem.Models;
+
+/// <summary>
+/// 訂餐窗口主檔
+/// </summary>
+public class OrderWindow
+{
+    public int OID { get; set; }
+    public string EmpID { get; set; } = string.Empty;
+    public List<string> ResponsibleDeptCodes { get; set; } = new();
+}
+
+```
+
+```csharp
+namespace FoodOrderSystem.Models;
+
+/// <summary>
+/// 餐點訂單
+/// </summary>
+public class MealOrder
+{
+    public string EmpID { get; set; } = string.Empty;
+    public string MealType { get; set; } = string.Empty;
+    public string DietType { get; set; } = string.Empty;
+    public string RicePortion { get; set; } = string.Empty;
+    public bool IsOrdered { get; set; }
+    public string OrderTime { get; set; } = string.Empty;
+    public bool AdminModified { get; set; }
+}
+
+```
+
+```csharp
+using FoodOrderSystem.Models;
+using Newtonsoft.Json;
+
+namespace FoodOrderSystem.Services;
+
+/// <summary>
+/// 訂便當系統核心服務
+/// </summary>
+public class FoodOrderService
+{
+    private readonly string _dataDir;
+    private readonly string _deptFile;
+    private readonly string _employeeFile;
+    private readonly string _windowFile;
+    private readonly string _ordersFile;
+
+    // 截止時間設定
+    public const int LUNCH_CUTOFF_HOUR = 8;
+    public const int LUNCH_CUTOFF_MINUTE = 30;
+    public const int DINNER_CUTOFF_HOUR = 16;
+    public const int DINNER_CUTOFF_MINUTE = 0;
+
+    // 管理員帳號密碼
+    public const string ADMIN_ACCOUNT = "admin";
+    public const string ADMIN_PASSWORD = "1234";
+
+    public FoodOrderService(IWebHostEnvironment env)
+    {
+        _dataDir = Path.Combine(env.ContentRootPath, "data");
+        Directory.CreateDirectory(_dataDir);
+
+        _deptFile = Path.Combine(_dataDir, "departments.json");
+        _employeeFile = Path.Combine(_dataDir, "employees.json");
+        _windowFile = Path.Combine(_dataDir, "windows.json");
+        _ordersFile = Path.Combine(_dataDir, "orders.json");
+
+        InitializeData();
+    }
+
+    private void InitializeData()
+    {
+        // 初始化部門
+        if (!File.Exists(_deptFile))
+        {
+            var defaultDepts = new List<Department>
+            {
+                new() { OID = 1, DeptCode = "A10", DeptName = "生產部" },
+                new() { OID = 2, DeptCode = "B20", DeptName = "倉儲部" },
+                new() { OID = 3, DeptCode = "C30", DeptName = "行政部" }
+            };
+            SaveJson(_deptFile, defaultDepts);
+        }
+
+        // 初始化員工
+        if (!File.Exists(_employeeFile))
+        {
+            var defaultEmployees = new List<Employee>
+            {
+                new() { OID = 101, EmpID = "93800", EmpName = "林淑鈺", Password = "1234", DeptCode = "A10" },
+                new() { OID = 102, EmpID = "28109", EmpName = "詹金璋", Password = "1234", DeptCode = "B20" },
+                new() { OID = 103, EmpID = "2400305", EmpName = "王瀚章", Password = "1234", DeptCode = "C30" }
+            };
+            SaveJson(_employeeFile, defaultEmployees);
+        }
+
+        // 初始化窗口
+        if (!File.Exists(_windowFile))
+        {
+            var defaultWindows = new List<OrderWindow>
+            {
+                new() { OID = 1, EmpID = "28109", ResponsibleDeptCodes = new List<string> { "A10", "C30" } }
+            };
+            SaveJson(_windowFile, defaultWindows);
+        }
+
+        // 初始化訂單（空字典）
+        if (!File.Exists(_ordersFile))
+        {
+            SaveJson(_ordersFile, new Dictionary<string, MealOrder>());
+        }
+    }
+
+    private T LoadJson<T>(string filepath)
+    {
+        try
+        {
+            if (!File.Exists(filepath))
+            {
+                if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                {
+                    return (T)Activator.CreateInstance(typeof(T))!;
+                }
+                return Activator.CreateInstance<T>();
+            }
+
+            var json = File.ReadAllText(filepath, System.Text.Encoding.UTF8);
+            return JsonConvert.DeserializeObject<T>(json) ?? Activator.CreateInstance<T>();
+        }
+        catch
+        {
+            if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Dictionary<,>))
+            {
+                return (T)Activator.CreateInstance(typeof(T))!;
+            }
+            return Activator.CreateInstance<T>();
+        }
+    }
+
+    private void SaveJson<T>(string filepath, T data)
+    {
+        var json = JsonConvert.SerializeObject(data, Formatting.Indented);
+        File.WriteAllText(filepath, json, System.Text.Encoding.UTF8);
+    }
+
+    // ========== 日期時間輔助函數 ==========
+
+    public static string FormatDate(DateTime date)
+    {
+        return date.ToString("yyyy-MM-dd");
+    }
+
+    public static DateTime ParseDate(string dateStr)
+    {
+        return DateTime.ParseExact(dateStr, "yyyy-MM-dd", null);
+    }
+
+    public bool CheckCutoff(string mealType, string? dateStr = null)
+    {
+        var today = DateTime.Now;
+        if (!string.IsNullOrEmpty(dateStr))
+        {
+            var targetDate = ParseDate(dateStr);
+            if (targetDate.Date != today.Date)
+            {
+                return targetDate.Date < today.Date;
+            }
+        }
+
+        var now = DateTime.Now;
+
+        if (mealType == MealType.LUNCH.ToString())
+        {
+            var cutoffTime = now.Date.AddHours(LUNCH_CUTOFF_HOUR).AddMinutes(LUNCH_CUTOFF_MINUTE);
+            return now > cutoffTime;
+        }
+        else if (mealType == MealType.DINNER.ToString())
+        {
+            var cutoffTime = now.Date.AddHours(DINNER_CUTOFF_HOUR).AddMinutes(DINNER_CUTOFF_MINUTE);
+            return now > cutoffTime;
+        }
+
+        return false;
+    }
+
+    // ========== 部門主檔管理 ==========
+
+    public List<Department> GetDepartments()
+    {
+        return LoadJson<List<Department>>(_deptFile);
+    }
+
+    public Department? GetDepartment(string deptCode)
+    {
+        var depts = GetDepartments();
+        return depts.FirstOrDefault(d => d.DeptCode == deptCode);
+    }
+
+    public (bool Success, string Message) SaveDepartment(int? oid, string deptCode, string deptName)
+    {
+        var depts = GetDepartments();
+        deptCode = deptCode.Trim().ToUpper();
+        deptName = deptName.Trim();
+
+        if (string.IsNullOrEmpty(deptCode) || string.IsNullOrEmpty(deptName))
+        {
+            return (false, "部門代號和部門名稱不能為空！");
+        }
+
+        if (oid.HasValue)
+        {
+            var dept = depts.FirstOrDefault(d => d.OID == oid.Value);
+            if (dept == null)
+            {
+                return (false, "找不到指定的部門！");
+            }
+
+            if (depts.Any(d => d.DeptCode == deptCode && d.OID != oid.Value))
+            {
+                return (false, "部門代號已存在！");
+            }
+
+            dept.DeptCode = deptCode;
+            dept.DeptName = deptName;
+            SaveJson(_deptFile, depts);
+            return (true, "部門資料修改成功！");
+        }
+        else
+        {
+            if (depts.Any(d => d.DeptCode == deptCode))
+            {
+                return (false, "部門代號已存在！");
+            }
+
+            var newOid = depts.Count > 0 ? depts.Max(d => d.OID) + 1 : 1;
+            depts.Add(new Department { OID = newOid, DeptCode = deptCode, DeptName = deptName });
+            SaveJson(_deptFile, depts);
+            return (true, "部門資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteDepartment(int oid)
+    {
+        var depts = GetDepartments();
+        depts.RemoveAll(d => d.OID == oid);
+        SaveJson(_deptFile, depts);
+        return (true, "部門資料刪除成功！");
+    }
+
+    // ========== 員工主檔管理 ==========
+
+    public List<Employee> GetEmployees()
+    {
+        return LoadJson<List<Employee>>(_employeeFile);
+    }
+
+    public Employee? GetEmployee(string empId)
+    {
+        var employees = GetEmployees();
+        return employees.FirstOrDefault(e => e.EmpID == empId);
+    }
+
+    public (bool Success, Employee? Employee) VerifyEmployee(string empId, string password)
+    {
+        var emp = GetEmployee(empId.Trim().ToUpper());
+        if (emp == null || emp.Password != password)
+        {
+            return (false, null);
+        }
+        return (true, emp);
+    }
+
+    public (bool Success, string Message) SaveEmployee(int? oid, string empId, string empName, string password, string deptCode)
+    {
+        var employees = GetEmployees();
+        empId = empId.Trim().ToUpper();
+        empName = empName.Trim();
+        deptCode = deptCode.Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(empId) || string.IsNullOrEmpty(empName) || 
+            string.IsNullOrEmpty(password) || string.IsNullOrEmpty(deptCode))
+        {
+            return (false, "員工編號、姓名、密碼和部門都不能為空！");
+        }
+
+        if (GetDepartment(deptCode) == null)
+        {
+            return (false, "指定的部門不存在！");
+        }
+
+        if (oid.HasValue)
+        {
+            var emp = employees.FirstOrDefault(e => e.OID == oid.Value);
+            if (emp == null)
+            {
+                return (false, "找不到指定的員工！");
+            }
+
+            if (employees.Any(e => e.EmpID == empId && e.OID != oid.Value))
+            {
+                return (false, "員工編號已存在！");
+            }
+
+            emp.EmpID = empId;
+            emp.EmpName = empName;
+            emp.Password = password;
+            emp.DeptCode = deptCode;
+            SaveJson(_employeeFile, employees);
+            return (true, "員工資料修改成功！");
+        }
+        else
+        {
+            if (employees.Any(e => e.EmpID == empId))
+            {
+                return (false, "員工編號已存在！");
+            }
+
+            var newOid = employees.Count > 0 ? employees.Max(e => e.OID) + 1 : 101;
+            employees.Add(new Employee
+            {
+                OID = newOid,
+                EmpID = empId,
+                EmpName = empName,
+                Password = password,
+                DeptCode = deptCode
+            });
+            SaveJson(_employeeFile, employees);
+            return (true, "員工資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteEmployee(int oid)
+    {
+        var employees = GetEmployees();
+        employees.RemoveAll(e => e.OID == oid);
+        SaveJson(_employeeFile, employees);
+        return (true, "員工資料刪除成功！");
+    }
+
+    // ========== 窗口主檔管理 ==========
+
+    public List<OrderWindow> GetWindows()
+    {
+        return LoadJson<List<OrderWindow>>(_windowFile);
+    }
+
+    public (bool Success, string Message) SaveWindow(int? oid, string empId, List<string> responsibleDeptCodes)
+    {
+        var windows = GetWindows();
+        empId = empId.Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(empId))
+        {
+            return (false, "請選擇一個窗口員工！");
+        }
+
+        if (responsibleDeptCodes == null || responsibleDeptCodes.Count == 0)
+        {
+            return (false, "請至少選擇一個負責單位！");
+        }
+
+        if (GetEmployee(empId) == null)
+        {
+            return (false, "指定的員工不存在！");
+        }
+
+        if (oid.HasValue)
+        {
+            var win = windows.FirstOrDefault(w => w.OID == oid.Value);
+            if (win == null)
+            {
+                return (false, "找不到指定的窗口！");
+            }
+
+            win.EmpID = empId;
+            win.ResponsibleDeptCodes = responsibleDeptCodes;
+            SaveJson(_windowFile, windows);
+            return (true, "訂餐窗口資料修改成功！");
+        }
+        else
+        {
+            if (windows.Any(w => w.EmpID == empId))
+            {
+                return (false, "該員工已經是訂餐窗口！請使用編輯功能修改。");
+            }
+
+            var newOid = windows.Count > 0 ? windows.Max(w => w.OID) + 1 : 1;
+            windows.Add(new OrderWindow
+            {
+                OID = newOid,
+                EmpID = empId,
+                ResponsibleDeptCodes = responsibleDeptCodes
+            });
+            SaveJson(_windowFile, windows);
+            return (true, "訂餐窗口資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteWindow(int oid)
+    {
+        var windows = GetWindows();
+        windows.RemoveAll(w => w.OID == oid);
+        SaveJson(_windowFile, windows);
+        return (true, "訂餐窗口資料刪除成功！");
+    }
+
+    // ========== 訂單管理 ==========
+
+    private string GetOrderKey(string dateStr, string empId, string mealType)
+    {
+        return $"{dateStr}_{empId}_{mealType}";
+    }
+
+    private Dictionary<string, MealOrder> GetOrders()
+    {
+        return LoadJson<Dictionary<string, MealOrder>>(_ordersFile);
+    }
+
+    public MealOrder? GetOrder(string dateStr, string empId, string mealType)
+    {
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+        return orders.TryGetValue(key, out var order) ? order : null;
+    }
+
+    public Dictionary<string, MealOrder?> GetTodayOrders(string empId)
+    {
+        var today = FormatDate(DateTime.Now);
+        return new Dictionary<string, MealOrder?>
+        {
+            { MealType.LUNCH.ToString(), GetOrder(today, empId, MealType.LUNCH.ToString()) },
+            { MealType.DINNER.ToString(), GetOrder(today, empId, MealType.DINNER.ToString()) }
+        };
+    }
+
+    public (bool Success, string Message) CreateOrder(string empId, string mealType, string dietType, 
+        string ricePortion, string? dateStr = null, bool isAdmin = false)
+    {
+        dateStr ??= FormatDate(DateTime.Now);
+
+        if (!isAdmin && CheckCutoff(mealType, dateStr))
+        {
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (false, $"{mealName}訂餐時間已截止！");
+        }
+
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (GetEmployee(empId) == null)
+        {
+            return (false, "員工不存在！");
+        }
+
+        var orderTime = DateTime.Now.ToString("HH:mm:ss");
+        orders[key] = new MealOrder
+        {
+            EmpID = empId,
+            MealType = mealType,
+            DietType = dietType,
+            RicePortion = ricePortion,
+            IsOrdered = true,
+            OrderTime = orderTime,
+            AdminModified = isAdmin
+        };
+
+        SaveJson(_ordersFile, orders);
+        var mealName2 = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+        return (true, $"{mealName2}訂購成功！");
+    }
+
+    public (bool Success, string Message) CancelOrder(string empId, string mealType, string? dateStr = null, bool isAdmin = false)
+    {
+        dateStr ??= FormatDate(DateTime.Now);
+
+        if (!isAdmin && CheckCutoff(mealType, dateStr))
+        {
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (false, $"{mealName}訂餐時間已截止，無法取消！");
+        }
+
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (orders.ContainsKey(key))
+        {
+            orders.Remove(key);
+            SaveJson(_ordersFile, orders);
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (true, $"{mealName}訂單已取消！");
+        }
+
+        return (false, "找不到該訂單！");
+    }
+
+    public (bool Success, string Message) UpdateOrder(string empId, string mealType, string dietType,
+        string ricePortion, string dateStr, bool isCancelled = false)
+    {
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (isCancelled)
+        {
+            if (orders.ContainsKey(key))
+            {
+                orders.Remove(key);
+                SaveJson(_ordersFile, orders);
+                return (true, "訂單已取消！");
+            }
+            return (false, "找不到該訂單！");
+        }
+        else
+        {
+            if (!orders.ContainsKey(key))
+            {
+                return (false, "找不到該訂單！");
+            }
+
+            var order = orders[key];
+            order.DietType = dietType;
+            order.RicePortion = ricePortion;
+            order.AdminModified = true;
+            SaveJson(_ordersFile, orders);
+            return (true, "訂單修改成功！");
+        }
+    }
+
+    public List<MealOrder> GetOrdersByDateRange(string dateFrom, string dateTo, string? empId = null, string? deptCode = null)
+    {
+        var dateFromDt = ParseDate(dateFrom);
+        var dateToDt = ParseDate(dateTo);
+        var orders = GetOrders();
+        var employees = GetEmployees();
+        var employeeMap = employees.ToDictionary(e => e.EmpID);
+
+        var result = new List<MealOrder>();
+        var currentDate = dateFromDt;
+
+        while (currentDate <= dateToDt)
+        {
+            var dateStr = FormatDate(currentDate);
+
+            foreach (var kvp in orders)
+            {
+                var order = kvp.Value;
+                if (!order.IsOrdered)
+                    continue;
+
+                var parts = kvp.Key.Split('_');
+                if (parts.Length != 3)
+                    continue;
+
+                var orderDate = parts[0];
+                var orderEmpId = parts[1];
+                var orderMealType = parts[2];
+
+                if (orderDate != dateStr)
+                    continue;
+
+                if (!string.IsNullOrEmpty(empId) && orderEmpId != empId)
+                    continue;
+
+                if (!string.IsNullOrEmpty(deptCode))
+                {
+                    if (!employeeMap.TryGetValue(orderEmpId, out var emp) || emp.DeptCode != deptCode)
+                        continue;
+                }
+
+                var orderInfo = new MealOrder
+                {
+                    EmpID = order.EmpID,
+                    MealType = order.MealType,
+                    DietType = order.DietType,
+                    RicePortion = order.RicePortion,
+                    IsOrdered = order.IsOrdered,
+                    OrderTime = order.OrderTime,
+                    AdminModified = order.AdminModified
+                };
+                result.Add(orderInfo);
+            }
+
+            currentDate = currentDate.AddDays(1);
+        }
+
+        return result;
+    }
+
+    public bool VerifyAdmin(string account, string password)
+    {
+        return account == ADMIN_ACCOUNT && password == ADMIN_PASSWORD;
+    }
+
+    // ========== 統計與匯出 ==========
+
+    public Dictionary<string, int> GetMealQuantityStats(string dateFrom, string dateTo)
+    {
+        var orders = GetOrdersByDateRange(dateFrom, dateTo);
+        var counts = new Dictionary<string, int>();
+
+        foreach (var order in orders)
+        {
+            var key = $"{dateFrom}_{order.MealType}_{order.DietType}_{order.RicePortion}";
+            if (!counts.ContainsKey(key))
+                counts[key] = 0;
+            counts[key]++;
+        }
+
+        return counts;
+    }
+
+    public Dictionary<string, EmployeeOrderStats> GetEmployeeOrderStats(string dateFrom, string dateTo)
+    {
+        var orders = GetOrdersByDateRange(dateFrom, dateTo);
+        var employees = GetEmployees();
+        var stats = new Dictionary<string, EmployeeOrderStats>();
+
+        foreach (var emp in employees)
+        {
+            stats[emp.EmpID] = new EmployeeOrderStats
+            {
+                EmpID = emp.EmpID,
+                EmpName = emp.EmpName,
+                LunchCount = 0,
+                DinnerCount = 0,
+                TotalCount = 0
+            };
+        }
+
+        foreach (var order in orders)
+        {
+            if (stats.TryGetValue(order.EmpID, out var stat))
+            {
+                stat.TotalCount++;
+                if (order.MealType == MealType.LUNCH.ToString())
+                    stat.LunchCount++;
+                else if (order.MealType == MealType.DINNER.ToString())
+                    stat.DinnerCount++;
+            }
+        }
+
+        return stats;
+    }
+}
+
+/// <summary>
+/// 員工訂購統計
+/// </summary>
+public class EmployeeOrderStats
+{
+    public string EmpID { get; set; } = string.Empty;
+    public string EmpName { get; set; } = string.Empty;
+    public int LunchCount { get; set; }
+    public int DinnerCount { get; set; }
+    public int TotalCount { get; set; }
+}
+
+```
+
+
+创建 API 控制器和 Program.cs：
+
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using FoodOrderSystem.Models;
+using FoodOrderSystem.Services;
+
+namespace FoodOrderSystem.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class EmployeeController : ControllerBase
+{
+    private readonly FoodOrderService _service;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public EmployeeController(FoodOrderService service, IHttpContextAccessor httpContextAccessor)
+    {
+        _service = service;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] LoginRequest request)
+    {
+        var (success, employee) = _service.VerifyEmployee(request.EmpId, request.Password);
+
+        if (success && employee != null)
+        {
+            _httpContextAccessor.HttpContext?.Session.SetString("emp_id", employee.EmpID);
+            _httpContextAccessor.HttpContext?.Session.SetString("emp_name", employee.EmpName);
+            _httpContextAccessor.HttpContext?.Session.SetString("is_admin", "false");
+
+            return Ok(new
+            {
+                success = true,
+                message = "登入成功",
+                employee = new
+                {
+                    employee.EmpID,
+                    employee.EmpName,
+                    employee.DeptCode
+                }
+            });
+        }
+
+        return Unauthorized(new { success = false, message = "員工編號或密碼錯誤" });
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        _httpContextAccessor.HttpContext?.Session.Clear();
+        return Ok(new { success = true, message = "登出成功" });
+    }
+
+    [HttpGet("today-orders")]
+    public IActionResult GetTodayOrders()
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        var orders = _service.GetTodayOrders(empId);
+        var today = FoodOrderService.FormatDate(DateTime.Now);
+
+        var result = new
+        {
+            date = today,
+            lunch = orders.ContainsKey(MealType.LUNCH.ToString()) && orders[MealType.LUNCH.ToString()]?.IsOrdered == true
+                ? new
+                {
+                    orders[MealType.LUNCH.ToString()]!.DietType,
+                    orders[MealType.LUNCH.ToString()]!.RicePortion,
+                    orders[MealType.LUNCH.ToString()]!.OrderTime,
+                    orders[MealType.LUNCH.ToString()]!.AdminModified
+                }
+                : null,
+            dinner = orders.ContainsKey(MealType.DINNER.ToString()) && orders[MealType.DINNER.ToString()]?.IsOrdered == true
+                ? new
+                {
+                    orders[MealType.DINNER.ToString()]!.DietType,
+                    orders[MealType.DINNER.ToString()]!.RicePortion,
+                    orders[MealType.DINNER.ToString()]!.OrderTime,
+                    orders[MealType.DINNER.ToString()]!.AdminModified
+                }
+                : null,
+            lunch_cutoff = _service.CheckCutoff(MealType.LUNCH.ToString()),
+            dinner_cutoff = _service.CheckCutoff(MealType.DINNER.ToString())
+        };
+
+        return Ok(new { success = true, data = result });
+    }
+
+    [HttpPost("order")]
+    public IActionResult CreateOrder([FromBody] CreateOrderRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(request.MealType) || string.IsNullOrEmpty(request.DietType) || 
+            string.IsNullOrEmpty(request.RicePortion))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.CreateOrder(empId, request.MealType, request.DietType, 
+            request.RicePortion, request.Date);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpPost("cancel-order")]
+    public IActionResult CancelOrder([FromBody] CancelOrderRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(request.MealType))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.CancelOrder(empId, request.MealType, request.Date);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpGet("weekly-orders")]
+    public IActionResult GetWeeklyOrders([FromQuery] string weekType = "current")
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        // 簡化實現，實際應根據weekType處理
+        var today = DateTime.Now;
+        var dateFrom = today.AddDays(-(int)today.DayOfWeek + 1).ToString("yyyy-MM-dd");
+        var dateTo = today.AddDays(-(int)today.DayOfWeek + 5).ToString("yyyy-MM-dd");
+
+        if (weekType == "next")
+        {
+            dateFrom = today.AddDays(-(int)today.DayOfWeek + 8).ToString("yyyy-MM-dd");
+            dateTo = today.AddDays(-(int)today.DayOfWeek + 12).ToString("yyyy-MM-dd");
+        }
+        else if (weekType == "month")
+        {
+            dateFrom = new DateTime(today.Year, today.Month, 1).ToString("yyyy-MM-dd");
+            dateTo = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)).ToString("yyyy-MM-dd");
+        }
+
+        var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId);
+        var ordersByDate = new Dictionary<string, object>();
+
+        foreach (var order in orders)
+        {
+            var dateKey = dateFrom; // 簡化處理
+            if (!ordersByDate.ContainsKey(dateKey))
+            {
+                ordersByDate[dateKey] = new { LUNCH = (object?)null, DINNER = (object?)null };
+            }
+        }
+
+        return Ok(new { success = true, data = ordersByDate });
+    }
+
+    [HttpPost("weekly-orders")]
+    public IActionResult SaveWeeklyOrders([FromBody] WeeklyOrdersRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        var successCount = 0;
+        var errorCount = 0;
+        var errors = new List<string>();
+
+        foreach (var orderData in request.Orders)
+        {
+            if (string.IsNullOrEmpty(orderData.DietType) || string.IsNullOrEmpty(orderData.RicePortion))
+            {
+                var (success, message) = _service.CancelOrder(empId, orderData.MealType, orderData.Date);
+                if (success) successCount++; else { errorCount++; errors.Add($"{orderData.Date} {orderData.MealType}: {message}"); }
+            }
+            else
+            {
+                var (success, message) = _service.CreateOrder(empId, orderData.MealType, orderData.DietType, 
+                    orderData.RicePortion, orderData.Date);
+                if (success) successCount++; else { errorCount++; errors.Add($"{orderData.Date} {orderData.MealType}: {message}"); }
+            }
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = $"共處理 {successCount + errorCount} 筆，成功 {successCount} 筆，失敗 {errorCount} 筆",
+            success_count = successCount,
+            error_count = errorCount,
+            errors
+        });
+    }
+
+    [HttpGet("history")]
+    public IActionResult GetHistory([FromQuery] string dateFrom, [FromQuery] string dateTo)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId);
+            return Ok(new { success = true, data = orders, count = orders.Count });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+}
+
+public class LoginRequest
+{
+    public string EmpId { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class CreateOrderRequest
+{
+    public string MealType { get; set; } = string.Empty;
+    public string DietType { get; set; } = string.Empty;
+    public string RicePortion { get; set; } = string.Empty;
+    public string? Date { get; set; }
+}
+
+public class CancelOrderRequest
+{
+    public string MealType { get; set; } = string.Empty;
+    public string? Date { get; set; }
+}
+
+public class WeeklyOrdersRequest
+{
+    public List<WeeklyOrderItem> Orders { get; set; } = new();
+}
+
+public class WeeklyOrderItem
+{
+    public string Date { get; set; } = string.Empty;
+    public string MealType { get; set; } = string.Empty;
+    public string? DietType { get; set; }
+    public string? RicePortion { get; set; }
+}
+
+```
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using FoodOrderSystem.Models;
+using FoodOrderSystem.Services;
+
+namespace FoodOrderSystem.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AdminController : ControllerBase
+{
+    private readonly FoodOrderService _service;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public AdminController(FoodOrderService service, IHttpContextAccessor httpContextAccessor)
+    {
+        _service = service;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    private bool IsAdmin()
+    {
+        var isAdmin = _httpContextAccessor.HttpContext?.Session.GetString("is_admin");
+        return isAdmin == "true";
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] AdminLoginRequest request)
+    {
+        if (_service.VerifyAdmin(request.Account, request.Password))
+        {
+            _httpContextAccessor.HttpContext?.Session.SetString("is_admin", "true");
+            _httpContextAccessor.HttpContext?.Session.SetString("admin_account", request.Account);
+            return Ok(new { success = true, message = "管理員登入成功" });
+        }
+
+        return Unauthorized(new { success = false, message = "帳號或密碼錯誤" });
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        _httpContextAccessor.HttpContext?.Session.Clear();
+        return Ok(new { success = true, message = "登出成功" });
+    }
+
+    [HttpGet("departments")]
+    public IActionResult GetDepartments()
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var depts = _service.GetDepartments();
+        return Ok(new { success = true, data = depts });
+    }
+
+    [HttpPost("departments")]
+    public IActionResult SaveDepartment([FromBody] DepartmentRequest request)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.SaveDepartment(request.OID, request.DeptCode, request.DeptName);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpDelete("departments/{oid}")]
+    public IActionResult DeleteDepartment(int oid)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.DeleteDepartment(oid);
+        return Ok(new { success, message });
+    }
+
+    [HttpGet("employees")]
+    public IActionResult GetEmployees()
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var employees = _service.GetEmployees();
+        // 隱藏密碼
+        var result = employees.Select(e => new
+        {
+            e.OID,
+            e.EmpID,
+            e.EmpName,
+            PasswordLength = e.Password.Length,
+            e.DeptCode
+        }).ToList();
+
+        return Ok(new { success = true, data = result });
+    }
+
+    [HttpPost("employees")]
+    public IActionResult SaveEmployee([FromBody] EmployeeRequest request)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.SaveEmployee(request.OID, request.EmpID, request.EmpName, 
+            request.Password, request.DeptCode);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpDelete("employees/{oid}")]
+    public IActionResult DeleteEmployee(int oid)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.DeleteEmployee(oid);
+        return Ok(new { success, message });
+    }
+
+    [HttpGet("windows")]
+    public IActionResult GetWindows()
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var windows = _service.GetWindows();
+        return Ok(new { success = true, data = windows });
+    }
+
+    [HttpPost("windows")]
+    public IActionResult SaveWindow([FromBody] WindowRequest request)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.SaveWindow(request.OID, request.EmpID, request.ResponsibleDeptCodes);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpDelete("windows/{oid}")]
+    public IActionResult DeleteWindow(int oid)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.DeleteWindow(oid);
+        return Ok(new { success, message });
+    }
+
+    [HttpGet("orders")]
+    public IActionResult GetOrders([FromQuery] string dateFrom, [FromQuery] string dateTo,
+        [FromQuery] string? empId = null, [FromQuery] string? deptCode = null)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId, deptCode);
+            return Ok(new { success = true, data = orders, count = orders.Count });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+
+    [HttpPut("orders")]
+    public IActionResult UpdateOrder([FromBody] UpdateOrderRequest request)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrEmpty(request.Date) || string.IsNullOrEmpty(request.EmpId) || 
+            string.IsNullOrEmpty(request.MealType))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.UpdateOrder(request.EmpId, request.MealType, request.DietType,
+            request.RicePortion, request.Date, request.IsCancelled);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpGet("stats/meal-quantity")]
+    public IActionResult GetMealQuantityStats([FromQuery] string dateFrom, [FromQuery] string dateTo)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var stats = _service.GetMealQuantityStats(dateFrom, dateTo);
+            return Ok(new { success = true, data = stats });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+
+    [HttpGet("stats/employee-orders")]
+    public IActionResult GetEmployeeOrderStats([FromQuery] string dateFrom, [FromQuery] string dateTo)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var stats = _service.GetEmployeeOrderStats(dateFrom, dateTo);
+            return Ok(new { success = true, data = stats.Values.ToList() });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+}
+
+public class AdminLoginRequest
+{
+    public string Account { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class DepartmentRequest
+{
+    public int? OID { get; set; }
+    public string DeptCode { get; set; } = string.Empty;
+    public string DeptName { get; set; } = string.Empty;
+}
+
+public class EmployeeRequest
+{
+    public int? OID { get; set; }
+    public string EmpID { get; set; } = string.Empty;
+    public string EmpName { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string DeptCode { get; set; } = string.Empty;
+}
+
+public class WindowRequest
+{
+    public int? OID { get; set; }
+    public string EmpID { get; set; } = string.Empty;
+    public List<string> ResponsibleDeptCodes { get; set; } = new();
+}
+
+public class UpdateOrderRequest
+{
+    public string Date { get; set; } = string.Empty;
+    public string EmpId { get; set; } = string.Empty;
+    public string MealType { get; set; } = string.Empty;
+    public string DietType { get; set; } = string.Empty;
+    public string RicePortion { get; set; } = string.Empty;
+    public bool IsCancelled { get; set; }
+}
+
+```
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+
+namespace FoodOrderSystem.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class SessionController : ControllerBase
+{
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public SessionController(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    [HttpGet("check")]
+    public IActionResult CheckSession()
+    {
+        var isAdmin = _httpContextAccessor.HttpContext?.Session.GetString("is_admin");
+        var adminAccount = _httpContextAccessor.HttpContext?.Session.GetString("admin_account");
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        var empName = _httpContextAccessor.HttpContext?.Session.GetString("emp_name");
+
+        if (isAdmin == "true")
+        {
+            return Ok(new
+            {
+                success = true,
+                is_admin = true,
+                account = adminAccount
+            });
+        }
+        else if (!string.IsNullOrEmpty(empId))
+        {
+            return Ok(new
+            {
+                success = true,
+                is_admin = false,
+                emp_id = empId,
+                emp_name = empName
+            });
+        }
+
+        return Ok(new { success = false, message = "未登入" });
+    }
+}
+
+```
+
+```csharp
+using FoodOrderSystem.Services;
+using Microsoft.AspNetCore.HttpOverrides;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Session support
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+// Services
+builder.Services.AddSingleton<FoodOrderService>();
+builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors();
+app.UseSession();
+app.UseStaticFiles();
+app.UseRouting();
+
+// API routes
+app.MapControllers();
+
+// Serve static HTML files
+app.MapGet("/", () => Results.File("index.html", "text/html"));
+app.MapGet("/employee", () => Results.File("index.html", "text/html"));
+app.MapGet("/admin/login", () => Results.File("admin_login.html", "text/html"));
+app.MapGet("/admin", () => Results.File("admin_dashboard.html", "text/html"));
+app.MapGet("/test", () => Results.File("test_page.html", "text/html"));
+
+app.Run("http://localhost:5000");
+
+```
+
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+
+```
+
+```ignore
+## Ignore Visual Studio temporary files, build results, and
+## files generated by popular Visual Studio add-ons.
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio cache/options directory
+.vs/
+
+# Rider
+.idea/
+
+# User-specific files
+*.rsuser
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+**/packages/*
+
+# Visual Studio cache files
+*.suo
+*.user
+*.userosscache
+
+```
+
+
+修复 SessionController 的路由，然后删除所有 Python 文件：
+
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+
+namespace FoodOrderSystem.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class SessionController : ControllerBase
+{
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public SessionController(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    [HttpGet("check-session")]
+    public IActionResult CheckSession()
+    {
+        var isAdmin = _httpContextAccessor.HttpContext?.Session.GetString("is_admin");
+        var adminAccount = _httpContextAccessor.HttpContext?.Session.GetString("admin_account");
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        var empName = _httpContextAccessor.HttpContext?.Session.GetString("emp_name");
+
+        if (isAdmin == "true")
+        {
+            return Ok(new
+            {
+                success = true,
+                is_admin = true,
+                account = adminAccount
+            });
+        }
+        else if (!string.IsNullOrEmpty(empId))
+        {
+            return Ok(new
+            {
+                success = true,
+                is_admin = false,
+                emp_id = empId,
+                emp_name = empName
+            });
+        }
+
+        return Ok(new { success = false, message = "未登入" });
+    }
+}
+
+
+```
+
+```markdown
+# 工廠訂便當系統 - C# .NET 7.0 版本
+
+## 系統要求
+
+- .NET 7.0 SDK 或更高版本
+- Visual Studio 2022 / VS Code / Rider 或其他 .NET 開發工具
+
+## 安裝與運行
+
+### 1. 還原依賴
+
+```bash
+dotnet restore
+```
+
+### 2. 運行應用
+
+```bash
+dotnet run
+```
+
+應用將在 `http://localhost:5000` 啟動。
+
+### 3. Swagger API 文檔（開發模式）
+
+訪問 `http://localhost:5000/swagger` 查看 API 文檔。
+
+## 項目結構
+
+```
+FoodOrderSystem/
+├── Controllers/          # API 控制器
+│   ├── EmployeeController.cs    # 員工端 API
+│   ├── AdminController.cs       # 管理員端 API
+│   └── SessionController.cs     # Session 管理
+├── Models/              # 數據模型
+│   ├── Enums.cs         # 枚舉類型
+│   ├── Department.cs    # 部門模型
+│   ├── Employee.cs      # 員工模型
+│   ├── OrderWindow.cs   # 窗口模型
+│   └── MealOrder.cs     # 訂單模型
+├── Services/            # 業務邏輯服務
+│   └── FoodOrderService.cs  # 核心業務邏輯
+├── Program.cs           # 應用入口點
+├── appsettings.json     # 配置文件
+└── FoodOrderSystem.csproj  # 項目文件
+```
+
+## API 端點
+
+與 Python 版本保持相同的 API 接口：
+
+### 員工 API
+
+- `POST /api/employee/login` - 員工登入
+- `POST /api/employee/logout` - 員工登出
+- `GET /api/employee/today-orders` - 獲取今日訂單
+- `POST /api/employee/order` - 創建訂單
+- `POST /api/employee/cancel-order` - 取消訂單
+- `GET /api/employee/weekly-orders` - 獲取一週訂單
+- `POST /api/employee/weekly-orders` - 批量保存一週訂單
+- `GET /api/employee/history` - 獲取歷史訂單
+
+### 管理員 API
+
+- `POST /api/admin/login` - 管理員登入
+- `POST /api/admin/logout` - 管理員登出
+- `GET /api/admin/departments` - 獲取部門列表
+- `POST /api/admin/departments` - 新增/修改部門
+- `DELETE /api/admin/departments/{oid}` - 刪除部門
+- `GET /api/admin/employees` - 獲取員工列表
+- `POST /api/admin/employees` - 新增/修改員工
+- `DELETE /api/admin/employees/{oid}` - 刪除員工
+- `GET /api/admin/windows` - 獲取窗口列表
+- `POST /api/admin/windows` - 新增/修改窗口
+- `DELETE /api/admin/windows/{oid}` - 刪除窗口
+- `GET /api/admin/orders` - 查詢訂單
+- `PUT /api/admin/orders` - 修改訂單
+- `GET /api/admin/stats/meal-quantity` - 餐點數量統計
+- `GET /api/admin/stats/employee-orders` - 員工訂購統計
+
+### 通用 API
+
+- `GET /api/session/check-session` - 檢查 session 狀態
+
+## 數據存儲
+
+系統使用 JSON 文件存儲數據，所有數據文件保存在 `data/` 目錄下：
+
+- `departments.json` - 部門主檔
+- `employees.json` - 員工主檔
+- `windows.json` - 訂餐窗口主檔
+- `orders.json` - 訂單數據
+
+首次運行時會自動創建預設數據。
+
+## 預設帳號
+
+### 管理員
+- 帳號：`admin`
+- 密碼：`1234`
+
+### 測試員工
+- 員工編號：`93800`，密碼：`1234`（林淑鈺）
+- 員工編號：`28109`，密碼：`1234`（詹金璋）
+- 員工編號：`2400305`，密碼：`1234`（王瀚章）
+
+## 前端頁面
+
+訪問以下 URL 使用前端界面：
+
+- `http://localhost:5000/` - 根頁面（API 信息）
+- `http://localhost:5000/test` - API 測試頁面
+- `http://localhost:5000/employee` - 員工訂餐頁面
+- `http://localhost:5000/admin/login` - 管理員登入頁面
+- `http://localhost:5000/admin` - 管理員後台頁面
+
+## 開發說明
+
+### Session 管理
+
+使用 ASP.NET Core 的 Session 中間件來管理用戶登入狀態。Session 數據存儲在內存中。
+
+### CORS 配置
+
+已配置允許所有來源的 CORS 策略，用於開發環境。生產環境應限制允許的來源。
+
+### JSON 序列化
+
+使用 Newtonsoft.Json 進行 JSON 序列化和反序列化，與 Python 版本保持數據格式兼容。
+
+## 部署
+
+### 發佈應用
+
+```bash
+dotnet publish -c Release -o ./publish
+```
+
+### 運行發佈版本
+
+```bash
+cd publish
+dotnet FoodOrderSystem.dll
+```
+
+## 從 Python 版本遷移
+
+C# 版本與 Python 版本保持相同的 API 接口和數據格式，可以直接替換使用。現有的前端代碼和測試腳本無需修改。
+
+## 授權
+
+本系統供學習和內部使用。
+
+```
+
+```csharp
+using FoodOrderSystem.Services;
+using Microsoft.AspNetCore.HttpOverrides;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Session support
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+// Services
+builder.Services.AddSingleton<FoodOrderService>();
+builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors();
+app.UseSession();
+app.UseStaticFiles();
+app.UseRouting();
+
+// API routes
+app.MapControllers();
+
+// Serve static HTML files
+app.MapGet("/", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "index.html");
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+    else
+    {
+        await context.Response.WriteAsync("API Service is running. Please check /swagger for API documentation.");
+    }
+});
+
+app.MapGet("/employee", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "index.html");
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+});
+
+app.MapGet("/admin/login", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "admin_login.html");
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+});
+
+app.MapGet("/admin", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "admin_dashboard.html");
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+});
+
+app.MapGet("/test", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "test_page.html");
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+});
+
+app.Run("http://localhost:5000");
+
+
+```
+
+
+修复 GetOrdersByDateRange 方法中的日期问题：
+
+
+```csharp
+using FoodOrderSystem.Models;
+using Newtonsoft.Json;
+
+namespace FoodOrderSystem.Services;
+
+/// <summary>
+/// 訂便當系統核心服務
+/// </summary>
+public class FoodOrderService
+{
+    private readonly string _dataDir;
+    private readonly string _deptFile;
+    private readonly string _employeeFile;
+    private readonly string _windowFile;
+    private readonly string _ordersFile;
+
+    // 截止時間設定
+    public const int LUNCH_CUTOFF_HOUR = 8;
+    public const int LUNCH_CUTOFF_MINUTE = 30;
+    public const int DINNER_CUTOFF_HOUR = 16;
+    public const int DINNER_CUTOFF_MINUTE = 0;
+
+    // 管理員帳號密碼
+    public const string ADMIN_ACCOUNT = "admin";
+    public const string ADMIN_PASSWORD = "1234";
+
+    public FoodOrderService(IWebHostEnvironment env)
+    {
+        _dataDir = Path.Combine(env.ContentRootPath, "data");
+        Directory.CreateDirectory(_dataDir);
+
+        _deptFile = Path.Combine(_dataDir, "departments.json");
+        _employeeFile = Path.Combine(_dataDir, "employees.json");
+        _windowFile = Path.Combine(_dataDir, "windows.json");
+        _ordersFile = Path.Combine(_dataDir, "orders.json");
+
+        InitializeData();
+    }
+
+    private void InitializeData()
+    {
+        // 初始化部門
+        if (!File.Exists(_deptFile))
+        {
+            var defaultDepts = new List<Department>
+            {
+                new() { OID = 1, DeptCode = "A10", DeptName = "生產部" },
+                new() { OID = 2, DeptCode = "B20", DeptName = "倉儲部" },
+                new() { OID = 3, DeptCode = "C30", DeptName = "行政部" }
+            };
+            SaveJson(_deptFile, defaultDepts);
+        }
+
+        // 初始化員工
+        if (!File.Exists(_employeeFile))
+        {
+            var defaultEmployees = new List<Employee>
+            {
+                new() { OID = 101, EmpID = "93800", EmpName = "林淑鈺", Password = "1234", DeptCode = "A10" },
+                new() { OID = 102, EmpID = "28109", EmpName = "詹金璋", Password = "1234", DeptCode = "B20" },
+                new() { OID = 103, EmpID = "2400305", EmpName = "王瀚章", Password = "1234", DeptCode = "C30" }
+            };
+            SaveJson(_employeeFile, defaultEmployees);
+        }
+
+        // 初始化窗口
+        if (!File.Exists(_windowFile))
+        {
+            var defaultWindows = new List<OrderWindow>
+            {
+                new() { OID = 1, EmpID = "28109", ResponsibleDeptCodes = new List<string> { "A10", "C30" } }
+            };
+            SaveJson(_windowFile, defaultWindows);
+        }
+
+        // 初始化訂單（空字典）
+        if (!File.Exists(_ordersFile))
+        {
+            SaveJson(_ordersFile, new Dictionary<string, MealOrder>());
+        }
+    }
+
+    private T LoadJson<T>(string filepath)
+    {
+        try
+        {
+            if (!File.Exists(filepath))
+            {
+                if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                {
+                    return (T)Activator.CreateInstance(typeof(T))!;
+                }
+                return Activator.CreateInstance<T>();
+            }
+
+            var json = File.ReadAllText(filepath, System.Text.Encoding.UTF8);
+            return JsonConvert.DeserializeObject<T>(json) ?? Activator.CreateInstance<T>();
+        }
+        catch
+        {
+            if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Dictionary<,>))
+            {
+                return (T)Activator.CreateInstance(typeof(T))!;
+            }
+            return Activator.CreateInstance<T>();
+        }
+    }
+
+    private void SaveJson<T>(string filepath, T data)
+    {
+        var json = JsonConvert.SerializeObject(data, Formatting.Indented);
+        File.WriteAllText(filepath, json, System.Text.Encoding.UTF8);
+    }
+
+    // ========== 日期時間輔助函數 ==========
+
+    public static string FormatDate(DateTime date)
+    {
+        return date.ToString("yyyy-MM-dd");
+    }
+
+    public static DateTime ParseDate(string dateStr)
+    {
+        return DateTime.ParseExact(dateStr, "yyyy-MM-dd", null);
+    }
+
+    public bool CheckCutoff(string mealType, string? dateStr = null)
+    {
+        var today = DateTime.Now;
+        if (!string.IsNullOrEmpty(dateStr))
+        {
+            var targetDate = ParseDate(dateStr);
+            if (targetDate.Date != today.Date)
+            {
+                return targetDate.Date < today.Date;
+            }
+        }
+
+        var now = DateTime.Now;
+
+        if (mealType == MealType.LUNCH.ToString())
+        {
+            var cutoffTime = now.Date.AddHours(LUNCH_CUTOFF_HOUR).AddMinutes(LUNCH_CUTOFF_MINUTE);
+            return now > cutoffTime;
+        }
+        else if (mealType == MealType.DINNER.ToString())
+        {
+            var cutoffTime = now.Date.AddHours(DINNER_CUTOFF_HOUR).AddMinutes(DINNER_CUTOFF_MINUTE);
+            return now > cutoffTime;
+        }
+
+        return false;
+    }
+
+    // ========== 部門主檔管理 ==========
+
+    public List<Department> GetDepartments()
+    {
+        return LoadJson<List<Department>>(_deptFile);
+    }
+
+    public Department? GetDepartment(string deptCode)
+    {
+        var depts = GetDepartments();
+        return depts.FirstOrDefault(d => d.DeptCode == deptCode);
+    }
+
+    public (bool Success, string Message) SaveDepartment(int? oid, string deptCode, string deptName)
+    {
+        var depts = GetDepartments();
+        deptCode = deptCode.Trim().ToUpper();
+        deptName = deptName.Trim();
+
+        if (string.IsNullOrEmpty(deptCode) || string.IsNullOrEmpty(deptName))
+        {
+            return (false, "部門代號和部門名稱不能為空！");
+        }
+
+        if (oid.HasValue)
+        {
+            var dept = depts.FirstOrDefault(d => d.OID == oid.Value);
+            if (dept == null)
+            {
+                return (false, "找不到指定的部門！");
+            }
+
+            if (depts.Any(d => d.DeptCode == deptCode && d.OID != oid.Value))
+            {
+                return (false, "部門代號已存在！");
+            }
+
+            dept.DeptCode = deptCode;
+            dept.DeptName = deptName;
+            SaveJson(_deptFile, depts);
+            return (true, "部門資料修改成功！");
+        }
+        else
+        {
+            if (depts.Any(d => d.DeptCode == deptCode))
+            {
+                return (false, "部門代號已存在！");
+            }
+
+            var newOid = depts.Count > 0 ? depts.Max(d => d.OID) + 1 : 1;
+            depts.Add(new Department { OID = newOid, DeptCode = deptCode, DeptName = deptName });
+            SaveJson(_deptFile, depts);
+            return (true, "部門資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteDepartment(int oid)
+    {
+        var depts = GetDepartments();
+        depts.RemoveAll(d => d.OID == oid);
+        SaveJson(_deptFile, depts);
+        return (true, "部門資料刪除成功！");
+    }
+
+    // ========== 員工主檔管理 ==========
+
+    public List<Employee> GetEmployees()
+    {
+        return LoadJson<List<Employee>>(_employeeFile);
+    }
+
+    public Employee? GetEmployee(string empId)
+    {
+        var employees = GetEmployees();
+        return employees.FirstOrDefault(e => e.EmpID == empId);
+    }
+
+    public (bool Success, Employee? Employee) VerifyEmployee(string empId, string password)
+    {
+        var emp = GetEmployee(empId.Trim().ToUpper());
+        if (emp == null || emp.Password != password)
+        {
+            return (false, null);
+        }
+        return (true, emp);
+    }
+
+    public (bool Success, string Message) SaveEmployee(int? oid, string empId, string empName, string password, string deptCode)
+    {
+        var employees = GetEmployees();
+        empId = empId.Trim().ToUpper();
+        empName = empName.Trim();
+        deptCode = deptCode.Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(empId) || string.IsNullOrEmpty(empName) || 
+            string.IsNullOrEmpty(password) || string.IsNullOrEmpty(deptCode))
+        {
+            return (false, "員工編號、姓名、密碼和部門都不能為空！");
+        }
+
+        if (GetDepartment(deptCode) == null)
+        {
+            return (false, "指定的部門不存在！");
+        }
+
+        if (oid.HasValue)
+        {
+            var emp = employees.FirstOrDefault(e => e.OID == oid.Value);
+            if (emp == null)
+            {
+                return (false, "找不到指定的員工！");
+            }
+
+            if (employees.Any(e => e.EmpID == empId && e.OID != oid.Value))
+            {
+                return (false, "員工編號已存在！");
+            }
+
+            emp.EmpID = empId;
+            emp.EmpName = empName;
+            emp.Password = password;
+            emp.DeptCode = deptCode;
+            SaveJson(_employeeFile, employees);
+            return (true, "員工資料修改成功！");
+        }
+        else
+        {
+            if (employees.Any(e => e.EmpID == empId))
+            {
+                return (false, "員工編號已存在！");
+            }
+
+            var newOid = employees.Count > 0 ? employees.Max(e => e.OID) + 1 : 101;
+            employees.Add(new Employee
+            {
+                OID = newOid,
+                EmpID = empId,
+                EmpName = empName,
+                Password = password,
+                DeptCode = deptCode
+            });
+            SaveJson(_employeeFile, employees);
+            return (true, "員工資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteEmployee(int oid)
+    {
+        var employees = GetEmployees();
+        employees.RemoveAll(e => e.OID == oid);
+        SaveJson(_employeeFile, employees);
+        return (true, "員工資料刪除成功！");
+    }
+
+    // ========== 窗口主檔管理 ==========
+
+    public List<OrderWindow> GetWindows()
+    {
+        return LoadJson<List<OrderWindow>>(_windowFile);
+    }
+
+    public (bool Success, string Message) SaveWindow(int? oid, string empId, List<string> responsibleDeptCodes)
+    {
+        var windows = GetWindows();
+        empId = empId.Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(empId))
+        {
+            return (false, "請選擇一個窗口員工！");
+        }
+
+        if (responsibleDeptCodes == null || responsibleDeptCodes.Count == 0)
+        {
+            return (false, "請至少選擇一個負責單位！");
+        }
+
+        if (GetEmployee(empId) == null)
+        {
+            return (false, "指定的員工不存在！");
+        }
+
+        if (oid.HasValue)
+        {
+            var win = windows.FirstOrDefault(w => w.OID == oid.Value);
+            if (win == null)
+            {
+                return (false, "找不到指定的窗口！");
+            }
+
+            win.EmpID = empId;
+            win.ResponsibleDeptCodes = responsibleDeptCodes;
+            SaveJson(_windowFile, windows);
+            return (true, "訂餐窗口資料修改成功！");
+        }
+        else
+        {
+            if (windows.Any(w => w.EmpID == empId))
+            {
+                return (false, "該員工已經是訂餐窗口！請使用編輯功能修改。");
+            }
+
+            var newOid = windows.Count > 0 ? windows.Max(w => w.OID) + 1 : 1;
+            windows.Add(new OrderWindow
+            {
+                OID = newOid,
+                EmpID = empId,
+                ResponsibleDeptCodes = responsibleDeptCodes
+            });
+            SaveJson(_windowFile, windows);
+            return (true, "訂餐窗口資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteWindow(int oid)
+    {
+        var windows = GetWindows();
+        windows.RemoveAll(w => w.OID == oid);
+        SaveJson(_windowFile, windows);
+        return (true, "訂餐窗口資料刪除成功！");
+    }
+
+    // ========== 訂單管理 ==========
+
+    private string GetOrderKey(string dateStr, string empId, string mealType)
+    {
+        return $"{dateStr}_{empId}_{mealType}";
+    }
+
+    private Dictionary<string, MealOrder> GetOrders()
+    {
+        return LoadJson<Dictionary<string, MealOrder>>(_ordersFile);
+    }
+
+    public MealOrder? GetOrder(string dateStr, string empId, string mealType)
+    {
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+        return orders.TryGetValue(key, out var order) ? order : null;
+    }
+
+    public Dictionary<string, MealOrder?> GetTodayOrders(string empId)
+    {
+        var today = FormatDate(DateTime.Now);
+        return new Dictionary<string, MealOrder?>
+        {
+            { MealType.LUNCH.ToString(), GetOrder(today, empId, MealType.LUNCH.ToString()) },
+            { MealType.DINNER.ToString(), GetOrder(today, empId, MealType.DINNER.ToString()) }
+        };
+    }
+
+    public (bool Success, string Message) CreateOrder(string empId, string mealType, string dietType, 
+        string ricePortion, string? dateStr = null, bool isAdmin = false)
+    {
+        dateStr ??= FormatDate(DateTime.Now);
+
+        if (!isAdmin && CheckCutoff(mealType, dateStr))
+        {
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (false, $"{mealName}訂餐時間已截止！");
+        }
+
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (GetEmployee(empId) == null)
+        {
+            return (false, "員工不存在！");
+        }
+
+        var orderTime = DateTime.Now.ToString("HH:mm:ss");
+        orders[key] = new MealOrder
+        {
+            EmpID = empId,
+            MealType = mealType,
+            DietType = dietType,
+            RicePortion = ricePortion,
+            IsOrdered = true,
+            OrderTime = orderTime,
+            AdminModified = isAdmin
+        };
+
+        SaveJson(_ordersFile, orders);
+        var mealName2 = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+        return (true, $"{mealName2}訂購成功！");
+    }
+
+    public (bool Success, string Message) CancelOrder(string empId, string mealType, string? dateStr = null, bool isAdmin = false)
+    {
+        dateStr ??= FormatDate(DateTime.Now);
+
+        if (!isAdmin && CheckCutoff(mealType, dateStr))
+        {
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (false, $"{mealName}訂餐時間已截止，無法取消！");
+        }
+
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (orders.ContainsKey(key))
+        {
+            orders.Remove(key);
+            SaveJson(_ordersFile, orders);
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (true, $"{mealName}訂單已取消！");
+        }
+
+        return (false, "找不到該訂單！");
+    }
+
+    public (bool Success, string Message) UpdateOrder(string empId, string mealType, string dietType,
+        string ricePortion, string dateStr, bool isCancelled = false)
+    {
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (isCancelled)
+        {
+            if (orders.ContainsKey(key))
+            {
+                orders.Remove(key);
+                SaveJson(_ordersFile, orders);
+                return (true, "訂單已取消！");
+            }
+            return (false, "找不到該訂單！");
+        }
+        else
+        {
+            if (!orders.ContainsKey(key))
+            {
+                return (false, "找不到該訂單！");
+            }
+
+            var order = orders[key];
+            order.DietType = dietType;
+            order.RicePortion = ricePortion;
+            order.AdminModified = true;
+            SaveJson(_ordersFile, orders);
+            return (true, "訂單修改成功！");
+        }
+    }
+
+    public List<OrderWithDate> GetOrdersByDateRange(string dateFrom, string dateTo, string? empId = null, string? deptCode = null)
+    {
+        var dateFromDt = ParseDate(dateFrom);
+        var dateToDt = ParseDate(dateTo);
+        var orders = GetOrders();
+        var employees = GetEmployees();
+        var employeeMap = employees.ToDictionary(e => e.EmpID);
+
+        var result = new List<OrderWithDate>();
+
+        foreach (var kvp in orders)
+        {
+            var order = kvp.Value;
+            if (!order.IsOrdered)
+                continue;
+
+            var parts = kvp.Key.Split('_');
+            if (parts.Length != 3)
+                continue;
+
+            var orderDate = parts[0];
+            var orderEmpId = parts[1];
+            var orderMealType = parts[2];
+
+            // 檢查日期是否在範圍內
+            var orderDateDt = ParseDate(orderDate);
+            if (orderDateDt < dateFromDt || orderDateDt > dateToDt)
+                continue;
+
+            if (!string.IsNullOrEmpty(empId) && orderEmpId != empId)
+                continue;
+
+            if (!string.IsNullOrEmpty(deptCode))
+            {
+                if (!employeeMap.TryGetValue(orderEmpId, out var emp) || emp.DeptCode != deptCode)
+                    continue;
+            }
+
+            var orderInfo = new OrderWithDate
+            {
+                Date = orderDate,
+                EmpID = order.EmpID,
+                MealType = order.MealType,
+                DietType = order.DietType,
+                RicePortion = order.RicePortion,
+                IsOrdered = order.IsOrdered,
+                OrderTime = order.OrderTime,
+                AdminModified = order.AdminModified
+            };
+            result.Add(orderInfo);
+        }
+
+        return result.OrderBy(o => o.Date).ToList();
+    }
+
+    public bool VerifyAdmin(string account, string password)
+    {
+        return account == ADMIN_ACCOUNT && password == ADMIN_PASSWORD;
+    }
+
+    // ========== 統計與匯出 ==========
+
+    public Dictionary<string, int> GetMealQuantityStats(string dateFrom, string dateTo)
+    {
+        var orders = GetOrdersByDateRange(dateFrom, dateTo);
+        var counts = new Dictionary<string, int>();
+
+        foreach (var order in orders)
+        {
+            var key = $"{dateFrom}_{order.MealType}_{order.DietType}_{order.RicePortion}";
+            if (!counts.ContainsKey(key))
+                counts[key] = 0;
+            counts[key]++;
+        }
+
+        return counts;
+    }
+
+    public Dictionary<string, EmployeeOrderStats> GetEmployeeOrderStats(string dateFrom, string dateTo)
+    {
+        var orders = GetOrdersByDateRange(dateFrom, dateTo);
+        var employees = GetEmployees();
+        var stats = new Dictionary<string, EmployeeOrderStats>();
+
+        foreach (var emp in employees)
+        {
+            stats[emp.EmpID] = new EmployeeOrderStats
+            {
+                EmpID = emp.EmpID,
+                EmpName = emp.EmpName,
+                LunchCount = 0,
+                DinnerCount = 0,
+                TotalCount = 0
+            };
+        }
+
+        foreach (var order in orders)
+        {
+            if (stats.TryGetValue(order.EmpID, out var stat))
+            {
+                stat.TotalCount++;
+                if (order.MealType == MealType.LUNCH.ToString())
+                    stat.LunchCount++;
+                else if (order.MealType == MealType.DINNER.ToString())
+                    stat.DinnerCount++;
+            }
+        }
+
+        return stats;
+    }
+}
+
+/// <summary>
+/// 員工訂購統計
+/// </summary>
+public class EmployeeOrderStats
+{
+    public string EmpID { get; set; } = string.Empty;
+    public string EmpName { get; set; } = string.Empty;
+    public int LunchCount { get; set; }
+    public int DinnerCount { get; set; }
+    public int TotalCount { get; set; }
+}
+
+
+```
+
+```csharp
+namespace FoodOrderSystem.Models;
+
+/// <summary>
+/// 帶日期的訂單（用於查詢結果）
+/// </summary>
+public class OrderWithDate
+{
+    public string Date { get; set; } = string.Empty;
+    public string EmpID { get; set; } = string.Empty;
+    public string MealType { get; set; } = string.Empty;
+    public string DietType { get; set; } = string.Empty;
+    public string RicePortion { get; set; } = string.Empty;
+    public bool IsOrdered { get; set; }
+    public string OrderTime { get; set; } = string.Empty;
+    public bool AdminModified { get; set; }
+}
+
+```
+
+```csharp
+using FoodOrderSystem.Models;
+using Newtonsoft.Json;
+
+namespace FoodOrderSystem.Services;
+
+/// <summary>
+/// 訂便當系統核心服務
+/// </summary>
+public class FoodOrderService
+{
+    private readonly string _dataDir;
+    private readonly string _deptFile;
+    private readonly string _employeeFile;
+    private readonly string _windowFile;
+    private readonly string _ordersFile;
+
+    // 截止時間設定
+    public const int LUNCH_CUTOFF_HOUR = 8;
+    public const int LUNCH_CUTOFF_MINUTE = 30;
+    public const int DINNER_CUTOFF_HOUR = 16;
+    public const int DINNER_CUTOFF_MINUTE = 0;
+
+    // 管理員帳號密碼
+    public const string ADMIN_ACCOUNT = "admin";
+    public const string ADMIN_PASSWORD = "1234";
+
+    public FoodOrderService(IWebHostEnvironment env)
+    {
+        _dataDir = Path.Combine(env.ContentRootPath, "data");
+        Directory.CreateDirectory(_dataDir);
+
+        _deptFile = Path.Combine(_dataDir, "departments.json");
+        _employeeFile = Path.Combine(_dataDir, "employees.json");
+        _windowFile = Path.Combine(_dataDir, "windows.json");
+        _ordersFile = Path.Combine(_dataDir, "orders.json");
+
+        InitializeData();
+    }
+
+    private void InitializeData()
+    {
+        // 初始化部門
+        if (!File.Exists(_deptFile))
+        {
+            var defaultDepts = new List<Department>
+            {
+                new() { OID = 1, DeptCode = "A10", DeptName = "生產部" },
+                new() { OID = 2, DeptCode = "B20", DeptName = "倉儲部" },
+                new() { OID = 3, DeptCode = "C30", DeptName = "行政部" }
+            };
+            SaveJson(_deptFile, defaultDepts);
+        }
+
+        // 初始化員工
+        if (!File.Exists(_employeeFile))
+        {
+            var defaultEmployees = new List<Employee>
+            {
+                new() { OID = 101, EmpID = "93800", EmpName = "林淑鈺", Password = "1234", DeptCode = "A10" },
+                new() { OID = 102, EmpID = "28109", EmpName = "詹金璋", Password = "1234", DeptCode = "B20" },
+                new() { OID = 103, EmpID = "2400305", EmpName = "王瀚章", Password = "1234", DeptCode = "C30" }
+            };
+            SaveJson(_employeeFile, defaultEmployees);
+        }
+
+        // 初始化窗口
+        if (!File.Exists(_windowFile))
+        {
+            var defaultWindows = new List<OrderWindow>
+            {
+                new() { OID = 1, EmpID = "28109", ResponsibleDeptCodes = new List<string> { "A10", "C30" } }
+            };
+            SaveJson(_windowFile, defaultWindows);
+        }
+
+        // 初始化訂單（空字典）
+        if (!File.Exists(_ordersFile))
+        {
+            SaveJson(_ordersFile, new Dictionary<string, MealOrder>());
+        }
+    }
+
+    private T LoadJson<T>(string filepath)
+    {
+        try
+        {
+            if (!File.Exists(filepath))
+            {
+                if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                {
+                    return (T)Activator.CreateInstance(typeof(T))!;
+                }
+                return Activator.CreateInstance<T>();
+            }
+
+            var json = File.ReadAllText(filepath, System.Text.Encoding.UTF8);
+            return JsonConvert.DeserializeObject<T>(json) ?? Activator.CreateInstance<T>();
+        }
+        catch
+        {
+            if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Dictionary<,>))
+            {
+                return (T)Activator.CreateInstance(typeof(T))!;
+            }
+            return Activator.CreateInstance<T>();
+        }
+    }
+
+    private void SaveJson<T>(string filepath, T data)
+    {
+        var json = JsonConvert.SerializeObject(data, Formatting.Indented);
+        File.WriteAllText(filepath, json, System.Text.Encoding.UTF8);
+    }
+
+    // ========== 日期時間輔助函數 ==========
+
+    public static string FormatDate(DateTime date)
+    {
+        return date.ToString("yyyy-MM-dd");
+    }
+
+    public static DateTime ParseDate(string dateStr)
+    {
+        return DateTime.ParseExact(dateStr, "yyyy-MM-dd", null);
+    }
+
+    public bool CheckCutoff(string mealType, string? dateStr = null)
+    {
+        var today = DateTime.Now;
+        if (!string.IsNullOrEmpty(dateStr))
+        {
+            var targetDate = ParseDate(dateStr);
+            if (targetDate.Date != today.Date)
+            {
+                return targetDate.Date < today.Date;
+            }
+        }
+
+        var now = DateTime.Now;
+
+        if (mealType == MealType.LUNCH.ToString())
+        {
+            var cutoffTime = now.Date.AddHours(LUNCH_CUTOFF_HOUR).AddMinutes(LUNCH_CUTOFF_MINUTE);
+            return now > cutoffTime;
+        }
+        else if (mealType == MealType.DINNER.ToString())
+        {
+            var cutoffTime = now.Date.AddHours(DINNER_CUTOFF_HOUR).AddMinutes(DINNER_CUTOFF_MINUTE);
+            return now > cutoffTime;
+        }
+
+        return false;
+    }
+
+    // ========== 部門主檔管理 ==========
+
+    public List<Department> GetDepartments()
+    {
+        return LoadJson<List<Department>>(_deptFile);
+    }
+
+    public Department? GetDepartment(string deptCode)
+    {
+        var depts = GetDepartments();
+        return depts.FirstOrDefault(d => d.DeptCode == deptCode);
+    }
+
+    public (bool Success, string Message) SaveDepartment(int? oid, string deptCode, string deptName)
+    {
+        var depts = GetDepartments();
+        deptCode = deptCode.Trim().ToUpper();
+        deptName = deptName.Trim();
+
+        if (string.IsNullOrEmpty(deptCode) || string.IsNullOrEmpty(deptName))
+        {
+            return (false, "部門代號和部門名稱不能為空！");
+        }
+
+        if (oid.HasValue)
+        {
+            var dept = depts.FirstOrDefault(d => d.OID == oid.Value);
+            if (dept == null)
+            {
+                return (false, "找不到指定的部門！");
+            }
+
+            if (depts.Any(d => d.DeptCode == deptCode && d.OID != oid.Value))
+            {
+                return (false, "部門代號已存在！");
+            }
+
+            dept.DeptCode = deptCode;
+            dept.DeptName = deptName;
+            SaveJson(_deptFile, depts);
+            return (true, "部門資料修改成功！");
+        }
+        else
+        {
+            if (depts.Any(d => d.DeptCode == deptCode))
+            {
+                return (false, "部門代號已存在！");
+            }
+
+            var newOid = depts.Count > 0 ? depts.Max(d => d.OID) + 1 : 1;
+            depts.Add(new Department { OID = newOid, DeptCode = deptCode, DeptName = deptName });
+            SaveJson(_deptFile, depts);
+            return (true, "部門資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteDepartment(int oid)
+    {
+        var depts = GetDepartments();
+        depts.RemoveAll(d => d.OID == oid);
+        SaveJson(_deptFile, depts);
+        return (true, "部門資料刪除成功！");
+    }
+
+    // ========== 員工主檔管理 ==========
+
+    public List<Employee> GetEmployees()
+    {
+        return LoadJson<List<Employee>>(_employeeFile);
+    }
+
+    public Employee? GetEmployee(string empId)
+    {
+        var employees = GetEmployees();
+        return employees.FirstOrDefault(e => e.EmpID == empId);
+    }
+
+    public (bool Success, Employee? Employee) VerifyEmployee(string empId, string password)
+    {
+        var emp = GetEmployee(empId.Trim().ToUpper());
+        if (emp == null || emp.Password != password)
+        {
+            return (false, null);
+        }
+        return (true, emp);
+    }
+
+    public (bool Success, string Message) SaveEmployee(int? oid, string empId, string empName, string password, string deptCode)
+    {
+        var employees = GetEmployees();
+        empId = empId.Trim().ToUpper();
+        empName = empName.Trim();
+        deptCode = deptCode.Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(empId) || string.IsNullOrEmpty(empName) || 
+            string.IsNullOrEmpty(password) || string.IsNullOrEmpty(deptCode))
+        {
+            return (false, "員工編號、姓名、密碼和部門都不能為空！");
+        }
+
+        if (GetDepartment(deptCode) == null)
+        {
+            return (false, "指定的部門不存在！");
+        }
+
+        if (oid.HasValue)
+        {
+            var emp = employees.FirstOrDefault(e => e.OID == oid.Value);
+            if (emp == null)
+            {
+                return (false, "找不到指定的員工！");
+            }
+
+            if (employees.Any(e => e.EmpID == empId && e.OID != oid.Value))
+            {
+                return (false, "員工編號已存在！");
+            }
+
+            emp.EmpID = empId;
+            emp.EmpName = empName;
+            emp.Password = password;
+            emp.DeptCode = deptCode;
+            SaveJson(_employeeFile, employees);
+            return (true, "員工資料修改成功！");
+        }
+        else
+        {
+            if (employees.Any(e => e.EmpID == empId))
+            {
+                return (false, "員工編號已存在！");
+            }
+
+            var newOid = employees.Count > 0 ? employees.Max(e => e.OID) + 1 : 101;
+            employees.Add(new Employee
+            {
+                OID = newOid,
+                EmpID = empId,
+                EmpName = empName,
+                Password = password,
+                DeptCode = deptCode
+            });
+            SaveJson(_employeeFile, employees);
+            return (true, "員工資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteEmployee(int oid)
+    {
+        var employees = GetEmployees();
+        employees.RemoveAll(e => e.OID == oid);
+        SaveJson(_employeeFile, employees);
+        return (true, "員工資料刪除成功！");
+    }
+
+    // ========== 窗口主檔管理 ==========
+
+    public List<OrderWindow> GetWindows()
+    {
+        return LoadJson<List<OrderWindow>>(_windowFile);
+    }
+
+    public (bool Success, string Message) SaveWindow(int? oid, string empId, List<string> responsibleDeptCodes)
+    {
+        var windows = GetWindows();
+        empId = empId.Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(empId))
+        {
+            return (false, "請選擇一個窗口員工！");
+        }
+
+        if (responsibleDeptCodes == null || responsibleDeptCodes.Count == 0)
+        {
+            return (false, "請至少選擇一個負責單位！");
+        }
+
+        if (GetEmployee(empId) == null)
+        {
+            return (false, "指定的員工不存在！");
+        }
+
+        if (oid.HasValue)
+        {
+            var win = windows.FirstOrDefault(w => w.OID == oid.Value);
+            if (win == null)
+            {
+                return (false, "找不到指定的窗口！");
+            }
+
+            win.EmpID = empId;
+            win.ResponsibleDeptCodes = responsibleDeptCodes;
+            SaveJson(_windowFile, windows);
+            return (true, "訂餐窗口資料修改成功！");
+        }
+        else
+        {
+            if (windows.Any(w => w.EmpID == empId))
+            {
+                return (false, "該員工已經是訂餐窗口！請使用編輯功能修改。");
+            }
+
+            var newOid = windows.Count > 0 ? windows.Max(w => w.OID) + 1 : 1;
+            windows.Add(new OrderWindow
+            {
+                OID = newOid,
+                EmpID = empId,
+                ResponsibleDeptCodes = responsibleDeptCodes
+            });
+            SaveJson(_windowFile, windows);
+            return (true, "訂餐窗口資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteWindow(int oid)
+    {
+        var windows = GetWindows();
+        windows.RemoveAll(w => w.OID == oid);
+        SaveJson(_windowFile, windows);
+        return (true, "訂餐窗口資料刪除成功！");
+    }
+
+    // ========== 訂單管理 ==========
+
+    private string GetOrderKey(string dateStr, string empId, string mealType)
+    {
+        return $"{dateStr}_{empId}_{mealType}";
+    }
+
+    private Dictionary<string, MealOrder> GetOrders()
+    {
+        return LoadJson<Dictionary<string, MealOrder>>(_ordersFile);
+    }
+
+    public MealOrder? GetOrder(string dateStr, string empId, string mealType)
+    {
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+        return orders.TryGetValue(key, out var order) ? order : null;
+    }
+
+    public Dictionary<string, MealOrder?> GetTodayOrders(string empId)
+    {
+        var today = FormatDate(DateTime.Now);
+        return new Dictionary<string, MealOrder?>
+        {
+            { MealType.LUNCH.ToString(), GetOrder(today, empId, MealType.LUNCH.ToString()) },
+            { MealType.DINNER.ToString(), GetOrder(today, empId, MealType.DINNER.ToString()) }
+        };
+    }
+
+    public (bool Success, string Message) CreateOrder(string empId, string mealType, string dietType, 
+        string ricePortion, string? dateStr = null, bool isAdmin = false)
+    {
+        dateStr ??= FormatDate(DateTime.Now);
+
+        if (!isAdmin && CheckCutoff(mealType, dateStr))
+        {
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (false, $"{mealName}訂餐時間已截止！");
+        }
+
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (GetEmployee(empId) == null)
+        {
+            return (false, "員工不存在！");
+        }
+
+        var orderTime = DateTime.Now.ToString("HH:mm:ss");
+        orders[key] = new MealOrder
+        {
+            EmpID = empId,
+            MealType = mealType,
+            DietType = dietType,
+            RicePortion = ricePortion,
+            IsOrdered = true,
+            OrderTime = orderTime,
+            AdminModified = isAdmin
+        };
+
+        SaveJson(_ordersFile, orders);
+        var mealName2 = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+        return (true, $"{mealName2}訂購成功！");
+    }
+
+    public (bool Success, string Message) CancelOrder(string empId, string mealType, string? dateStr = null, bool isAdmin = false)
+    {
+        dateStr ??= FormatDate(DateTime.Now);
+
+        if (!isAdmin && CheckCutoff(mealType, dateStr))
+        {
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (false, $"{mealName}訂餐時間已截止，無法取消！");
+        }
+
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (orders.ContainsKey(key))
+        {
+            orders.Remove(key);
+            SaveJson(_ordersFile, orders);
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (true, $"{mealName}訂單已取消！");
+        }
+
+        return (false, "找不到該訂單！");
+    }
+
+    public (bool Success, string Message) UpdateOrder(string empId, string mealType, string dietType,
+        string ricePortion, string dateStr, bool isCancelled = false)
+    {
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (isCancelled)
+        {
+            if (orders.ContainsKey(key))
+            {
+                orders.Remove(key);
+                SaveJson(_ordersFile, orders);
+                return (true, "訂單已取消！");
+            }
+            return (false, "找不到該訂單！");
+        }
+        else
+        {
+            if (!orders.ContainsKey(key))
+            {
+                return (false, "找不到該訂單！");
+            }
+
+            var order = orders[key];
+            order.DietType = dietType;
+            order.RicePortion = ricePortion;
+            order.AdminModified = true;
+            SaveJson(_ordersFile, orders);
+            return (true, "訂單修改成功！");
+        }
+    }
+
+    public List<OrderWithDate> GetOrdersByDateRange(string dateFrom, string dateTo, string? empId = null, string? deptCode = null)
+    {
+        var dateFromDt = ParseDate(dateFrom);
+        var dateToDt = ParseDate(dateTo);
+        var orders = GetOrders();
+        var employees = GetEmployees();
+        var employeeMap = employees.ToDictionary(e => e.EmpID);
+
+        var result = new List<OrderWithDate>();
+
+        foreach (var kvp in orders)
+        {
+            var order = kvp.Value;
+            if (!order.IsOrdered)
+                continue;
+
+            var parts = kvp.Key.Split('_');
+            if (parts.Length != 3)
+                continue;
+
+            var orderDate = parts[0];
+            var orderEmpId = parts[1];
+            var orderMealType = parts[2];
+
+            // 檢查日期是否在範圍內
+            var orderDateDt = ParseDate(orderDate);
+            if (orderDateDt < dateFromDt || orderDateDt > dateToDt)
+                continue;
+
+            if (!string.IsNullOrEmpty(empId) && orderEmpId != empId)
+                continue;
+
+            if (!string.IsNullOrEmpty(deptCode))
+            {
+                if (!employeeMap.TryGetValue(orderEmpId, out var emp) || emp.DeptCode != deptCode)
+                    continue;
+            }
+
+            var orderInfo = new OrderWithDate
+            {
+                Date = orderDate,
+                EmpID = order.EmpID,
+                MealType = order.MealType,
+                DietType = order.DietType,
+                RicePortion = order.RicePortion,
+                IsOrdered = order.IsOrdered,
+                OrderTime = order.OrderTime,
+                AdminModified = order.AdminModified
+            };
+            result.Add(orderInfo);
+        }
+
+        return result.OrderBy(o => o.Date).ToList();
+    }
+
+    public bool VerifyAdmin(string account, string password)
+    {
+        return account == ADMIN_ACCOUNT && password == ADMIN_PASSWORD;
+    }
+
+    // ========== 統計與匯出 ==========
+
+    public Dictionary<string, int> GetMealQuantityStats(string dateFrom, string dateTo)
+    {
+        var orders = GetOrdersByDateRange(dateFrom, dateTo);
+        var counts = new Dictionary<string, int>();
+
+        foreach (var order in orders)
+        {
+            var key = $"{order.Date}_{order.MealType}_{order.DietType}_{order.RicePortion}";
+            if (!counts.ContainsKey(key))
+                counts[key] = 0;
+            counts[key]++;
+        }
+
+        return counts;
+    }
+
+    public Dictionary<string, EmployeeOrderStats> GetEmployeeOrderStats(string dateFrom, string dateTo)
+    {
+        var orders = GetOrdersByDateRange(dateFrom, dateTo);
+        var employees = GetEmployees();
+        var stats = new Dictionary<string, EmployeeOrderStats>();
+
+        foreach (var emp in employees)
+        {
+            stats[emp.EmpID] = new EmployeeOrderStats
+            {
+                EmpID = emp.EmpID,
+                EmpName = emp.EmpName,
+                LunchCount = 0,
+                DinnerCount = 0,
+                TotalCount = 0
+            };
+        }
+
+        foreach (var order in orders)
+        {
+            if (stats.TryGetValue(order.EmpID, out var stat))
+            {
+                stat.TotalCount++;
+                if (order.MealType == MealType.LUNCH.ToString())
+                    stat.LunchCount++;
+                else if (order.MealType == MealType.DINNER.ToString())
+                    stat.DinnerCount++;
+            }
+        }
+
+        return stats;
+    }
+}
+
+/// <summary>
+/// 員工訂購統計
+/// </summary>
+public class EmployeeOrderStats
+{
+    public string EmpID { get; set; } = string.Empty;
+    public string EmpName { get; set; } = string.Empty;
+    public int LunchCount { get; set; }
+    public int DinnerCount { get; set; }
+    public int TotalCount { get; set; }
+}
+
+
+```
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using FoodOrderSystem.Models;
+using FoodOrderSystem.Services;
+
+namespace FoodOrderSystem.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class EmployeeController : ControllerBase
+{
+    private readonly FoodOrderService _service;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public EmployeeController(FoodOrderService service, IHttpContextAccessor httpContextAccessor)
+    {
+        _service = service;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] LoginRequest request)
+    {
+        var (success, employee) = _service.VerifyEmployee(request.EmpId, request.Password);
+
+        if (success && employee != null)
+        {
+            _httpContextAccessor.HttpContext?.Session.SetString("emp_id", employee.EmpID);
+            _httpContextAccessor.HttpContext?.Session.SetString("emp_name", employee.EmpName);
+            _httpContextAccessor.HttpContext?.Session.SetString("is_admin", "false");
+
+            return Ok(new
+            {
+                success = true,
+                message = "登入成功",
+                employee = new
+                {
+                    employee.EmpID,
+                    employee.EmpName,
+                    employee.DeptCode
+                }
+            });
+        }
+
+        return Unauthorized(new { success = false, message = "員工編號或密碼錯誤" });
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        _httpContextAccessor.HttpContext?.Session.Clear();
+        return Ok(new { success = true, message = "登出成功" });
+    }
+
+    [HttpGet("today-orders")]
+    public IActionResult GetTodayOrders()
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        var orders = _service.GetTodayOrders(empId);
+        var today = FoodOrderService.FormatDate(DateTime.Now);
+
+        var result = new
+        {
+            date = today,
+            lunch = orders.ContainsKey(MealType.LUNCH.ToString()) && orders[MealType.LUNCH.ToString()]?.IsOrdered == true
+                ? new
+                {
+                    orders[MealType.LUNCH.ToString()]!.DietType,
+                    orders[MealType.LUNCH.ToString()]!.RicePortion,
+                    orders[MealType.LUNCH.ToString()]!.OrderTime,
+                    orders[MealType.LUNCH.ToString()]!.AdminModified
+                }
+                : null,
+            dinner = orders.ContainsKey(MealType.DINNER.ToString()) && orders[MealType.DINNER.ToString()]?.IsOrdered == true
+                ? new
+                {
+                    orders[MealType.DINNER.ToString()]!.DietType,
+                    orders[MealType.DINNER.ToString()]!.RicePortion,
+                    orders[MealType.DINNER.ToString()]!.OrderTime,
+                    orders[MealType.DINNER.ToString()]!.AdminModified
+                }
+                : null,
+            lunch_cutoff = _service.CheckCutoff(MealType.LUNCH.ToString()),
+            dinner_cutoff = _service.CheckCutoff(MealType.DINNER.ToString())
+        };
+
+        return Ok(new { success = true, data = result });
+    }
+
+    [HttpPost("order")]
+    public IActionResult CreateOrder([FromBody] CreateOrderRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(request.MealType) || string.IsNullOrEmpty(request.DietType) || 
+            string.IsNullOrEmpty(request.RicePortion))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.CreateOrder(empId, request.MealType, request.DietType, 
+            request.RicePortion, request.Date);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpPost("cancel-order")]
+    public IActionResult CancelOrder([FromBody] CancelOrderRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(request.MealType))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.CancelOrder(empId, request.MealType, request.Date);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpGet("weekly-orders")]
+    public IActionResult GetWeeklyOrders([FromQuery] string weekType = "current")
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        // 簡化實現，實際應根據weekType處理
+        var today = DateTime.Now;
+        var dateFrom = today.AddDays(-(int)today.DayOfWeek + 1).ToString("yyyy-MM-dd");
+        var dateTo = today.AddDays(-(int)today.DayOfWeek + 5).ToString("yyyy-MM-dd");
+
+        if (weekType == "next")
+        {
+            dateFrom = today.AddDays(-(int)today.DayOfWeek + 8).ToString("yyyy-MM-dd");
+            dateTo = today.AddDays(-(int)today.DayOfWeek + 12).ToString("yyyy-MM-dd");
+        }
+        else if (weekType == "month")
+        {
+            dateFrom = new DateTime(today.Year, today.Month, 1).ToString("yyyy-MM-dd");
+            dateTo = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)).ToString("yyyy-MM-dd");
+        }
+
+        var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId);
+        var ordersByDate = new Dictionary<string, object>();
+
+        foreach (var order in orders)
+        {
+            var dateKey = dateFrom; // 簡化處理
+            if (!ordersByDate.ContainsKey(dateKey))
+            {
+                ordersByDate[dateKey] = new { LUNCH = (object?)null, DINNER = (object?)null };
+            }
+        }
+
+        return Ok(new { success = true, data = ordersByDate });
+    }
+
+    [HttpPost("weekly-orders")]
+    public IActionResult SaveWeeklyOrders([FromBody] WeeklyOrdersRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        var successCount = 0;
+        var errorCount = 0;
+        var errors = new List<string>();
+
+        foreach (var orderData in request.Orders)
+        {
+            if (string.IsNullOrEmpty(orderData.DietType) || string.IsNullOrEmpty(orderData.RicePortion))
+            {
+                var (success, message) = _service.CancelOrder(empId, orderData.MealType, orderData.Date);
+                if (success) successCount++; else { errorCount++; errors.Add($"{orderData.Date} {orderData.MealType}: {message}"); }
+            }
+            else
+            {
+                var (success, message) = _service.CreateOrder(empId, orderData.MealType, orderData.DietType, 
+                    orderData.RicePortion, orderData.Date);
+                if (success) successCount++; else { errorCount++; errors.Add($"{orderData.Date} {orderData.MealType}: {message}"); }
+            }
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = $"共處理 {successCount + errorCount} 筆，成功 {successCount} 筆，失敗 {errorCount} 筆",
+            success_count = successCount,
+            error_count = errorCount,
+            errors
+        });
+    }
+
+    [HttpGet("history")]
+    public IActionResult GetHistory([FromQuery] string dateFrom, [FromQuery] string dateTo)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId);
+            var ordersList = orders.Select(o => new
+            {
+                Date = o.Date,
+                EmpID = o.EmpID,
+                MealType = o.MealType,
+                DietType = o.DietType,
+                RicePortion = o.RicePortion,
+                IsOrdered = o.IsOrdered,
+                OrderTime = o.OrderTime,
+                AdminModified = o.AdminModified
+            }).ToList();
+            return Ok(new { success = true, data = orders, count = orders.Count });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+}
+
+public class LoginRequest
+{
+    public string EmpId { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class CreateOrderRequest
+{
+    public string MealType { get; set; } = string.Empty;
+    public string DietType { get; set; } = string.Empty;
+    public string RicePortion { get; set; } = string.Empty;
+    public string? Date { get; set; }
+}
+
+public class CancelOrderRequest
+{
+    public string MealType { get; set; } = string.Empty;
+    public string? Date { get; set; }
+}
+
+public class WeeklyOrdersRequest
+{
+    public List<WeeklyOrderItem> Orders { get; set; } = new();
+}
+
+public class WeeklyOrderItem
+{
+    public string Date { get; set; } = string.Empty;
+    public string MealType { get; set; } = string.Empty;
+    public string? DietType { get; set; }
+    public string? RicePortion { get; set; }
+}
+
+
+```
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using FoodOrderSystem.Models;
+using FoodOrderSystem.Services;
+
+namespace FoodOrderSystem.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class EmployeeController : ControllerBase
+{
+    private readonly FoodOrderService _service;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public EmployeeController(FoodOrderService service, IHttpContextAccessor httpContextAccessor)
+    {
+        _service = service;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] LoginRequest request)
+    {
+        var (success, employee) = _service.VerifyEmployee(request.EmpId, request.Password);
+
+        if (success && employee != null)
+        {
+            _httpContextAccessor.HttpContext?.Session.SetString("emp_id", employee.EmpID);
+            _httpContextAccessor.HttpContext?.Session.SetString("emp_name", employee.EmpName);
+            _httpContextAccessor.HttpContext?.Session.SetString("is_admin", "false");
+
+            return Ok(new
+            {
+                success = true,
+                message = "登入成功",
+                employee = new
+                {
+                    employee.EmpID,
+                    employee.EmpName,
+                    employee.DeptCode
+                }
+            });
+        }
+
+        return Unauthorized(new { success = false, message = "員工編號或密碼錯誤" });
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        _httpContextAccessor.HttpContext?.Session.Clear();
+        return Ok(new { success = true, message = "登出成功" });
+    }
+
+    [HttpGet("today-orders")]
+    public IActionResult GetTodayOrders()
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        var orders = _service.GetTodayOrders(empId);
+        var today = FoodOrderService.FormatDate(DateTime.Now);
+
+        var result = new
+        {
+            date = today,
+            lunch = orders.ContainsKey(MealType.LUNCH.ToString()) && orders[MealType.LUNCH.ToString()]?.IsOrdered == true
+                ? new
+                {
+                    orders[MealType.LUNCH.ToString()]!.DietType,
+                    orders[MealType.LUNCH.ToString()]!.RicePortion,
+                    orders[MealType.LUNCH.ToString()]!.OrderTime,
+                    orders[MealType.LUNCH.ToString()]!.AdminModified
+                }
+                : null,
+            dinner = orders.ContainsKey(MealType.DINNER.ToString()) && orders[MealType.DINNER.ToString()]?.IsOrdered == true
+                ? new
+                {
+                    orders[MealType.DINNER.ToString()]!.DietType,
+                    orders[MealType.DINNER.ToString()]!.RicePortion,
+                    orders[MealType.DINNER.ToString()]!.OrderTime,
+                    orders[MealType.DINNER.ToString()]!.AdminModified
+                }
+                : null,
+            lunch_cutoff = _service.CheckCutoff(MealType.LUNCH.ToString()),
+            dinner_cutoff = _service.CheckCutoff(MealType.DINNER.ToString())
+        };
+
+        return Ok(new { success = true, data = result });
+    }
+
+    [HttpPost("order")]
+    public IActionResult CreateOrder([FromBody] CreateOrderRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(request.MealType) || string.IsNullOrEmpty(request.DietType) || 
+            string.IsNullOrEmpty(request.RicePortion))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.CreateOrder(empId, request.MealType, request.DietType, 
+            request.RicePortion, request.Date);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpPost("cancel-order")]
+    public IActionResult CancelOrder([FromBody] CancelOrderRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(request.MealType))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.CancelOrder(empId, request.MealType, request.Date);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpGet("weekly-orders")]
+    public IActionResult GetWeeklyOrders([FromQuery] string weekType = "current")
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        // 簡化實現，實際應根據weekType處理
+        var today = DateTime.Now;
+        var dateFrom = today.AddDays(-(int)today.DayOfWeek + 1).ToString("yyyy-MM-dd");
+        var dateTo = today.AddDays(-(int)today.DayOfWeek + 5).ToString("yyyy-MM-dd");
+
+        if (weekType == "next")
+        {
+            dateFrom = today.AddDays(-(int)today.DayOfWeek + 8).ToString("yyyy-MM-dd");
+            dateTo = today.AddDays(-(int)today.DayOfWeek + 12).ToString("yyyy-MM-dd");
+        }
+        else if (weekType == "month")
+        {
+            dateFrom = new DateTime(today.Year, today.Month, 1).ToString("yyyy-MM-dd");
+            dateTo = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)).ToString("yyyy-MM-dd");
+        }
+
+        var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId);
+        var ordersByDate = new Dictionary<string, object>();
+
+        foreach (var order in orders)
+        {
+            var dateKey = dateFrom; // 簡化處理
+            if (!ordersByDate.ContainsKey(dateKey))
+            {
+                ordersByDate[dateKey] = new { LUNCH = (object?)null, DINNER = (object?)null };
+            }
+        }
+
+        return Ok(new { success = true, data = ordersByDate });
+    }
+
+    [HttpPost("weekly-orders")]
+    public IActionResult SaveWeeklyOrders([FromBody] WeeklyOrdersRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        var successCount = 0;
+        var errorCount = 0;
+        var errors = new List<string>();
+
+        foreach (var orderData in request.Orders)
+        {
+            if (string.IsNullOrEmpty(orderData.DietType) || string.IsNullOrEmpty(orderData.RicePortion))
+            {
+                var (success, message) = _service.CancelOrder(empId, orderData.MealType, orderData.Date);
+                if (success) successCount++; else { errorCount++; errors.Add($"{orderData.Date} {orderData.MealType}: {message}"); }
+            }
+            else
+            {
+                var (success, message) = _service.CreateOrder(empId, orderData.MealType, orderData.DietType, 
+                    orderData.RicePortion, orderData.Date);
+                if (success) successCount++; else { errorCount++; errors.Add($"{orderData.Date} {orderData.MealType}: {message}"); }
+            }
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = $"共處理 {successCount + errorCount} 筆，成功 {successCount} 筆，失敗 {errorCount} 筆",
+            success_count = successCount,
+            error_count = errorCount,
+            errors
+        });
+    }
+
+    [HttpGet("history")]
+    public IActionResult GetHistory([FromQuery] string dateFrom, [FromQuery] string dateTo)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId);
+            var ordersList = orders.Select(o => new
+            {
+                Date = o.Date,
+                EmpID = o.EmpID,
+                MealType = o.MealType,
+                DietType = o.DietType,
+                RicePortion = o.RicePortion,
+                IsOrdered = o.IsOrdered,
+                OrderTime = o.OrderTime,
+                AdminModified = o.AdminModified
+            }).ToList();
+            return Ok(new { success = true, data = ordersList, count = ordersList.Count });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+}
+
+public class LoginRequest
+{
+    public string EmpId { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class CreateOrderRequest
+{
+    public string MealType { get; set; } = string.Empty;
+    public string DietType { get; set; } = string.Empty;
+    public string RicePortion { get; set; } = string.Empty;
+    public string? Date { get; set; }
+}
+
+public class CancelOrderRequest
+{
+    public string MealType { get; set; } = string.Empty;
+    public string? Date { get; set; }
+}
+
+public class WeeklyOrdersRequest
+{
+    public List<WeeklyOrderItem> Orders { get; set; } = new();
+}
+
+public class WeeklyOrderItem
+{
+    public string Date { get; set; } = string.Empty;
+    public string MealType { get; set; } = string.Empty;
+    public string? DietType { get; set; }
+    public string? RicePortion { get; set; }
+}
+
+
+```
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using FoodOrderSystem.Models;
+using FoodOrderSystem.Services;
+
+namespace FoodOrderSystem.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AdminController : ControllerBase
+{
+    private readonly FoodOrderService _service;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public AdminController(FoodOrderService service, IHttpContextAccessor httpContextAccessor)
+    {
+        _service = service;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    private bool IsAdmin()
+    {
+        var isAdmin = _httpContextAccessor.HttpContext?.Session.GetString("is_admin");
+        return isAdmin == "true";
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] AdminLoginRequest request)
+    {
+        if (_service.VerifyAdmin(request.Account, request.Password))
+        {
+            _httpContextAccessor.HttpContext?.Session.SetString("is_admin", "true");
+            _httpContextAccessor.HttpContext?.Session.SetString("admin_account", request.Account);
+            return Ok(new { success = true, message = "管理員登入成功" });
+        }
+
+        return Unauthorized(new { success = false, message = "帳號或密碼錯誤" });
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        _httpContextAccessor.HttpContext?.Session.Clear();
+        return Ok(new { success = true, message = "登出成功" });
+    }
+
+    [HttpGet("departments")]
+    public IActionResult GetDepartments()
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var depts = _service.GetDepartments();
+        return Ok(new { success = true, data = depts });
+    }
+
+    [HttpPost("departments")]
+    public IActionResult SaveDepartment([FromBody] DepartmentRequest request)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.SaveDepartment(request.OID, request.DeptCode, request.DeptName);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpDelete("departments/{oid}")]
+    public IActionResult DeleteDepartment(int oid)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.DeleteDepartment(oid);
+        return Ok(new { success, message });
+    }
+
+    [HttpGet("employees")]
+    public IActionResult GetEmployees()
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var employees = _service.GetEmployees();
+        // 隱藏密碼
+        var result = employees.Select(e => new
+        {
+            e.OID,
+            e.EmpID,
+            e.EmpName,
+            PasswordLength = e.Password.Length,
+            e.DeptCode
+        }).ToList();
+
+        return Ok(new { success = true, data = result });
+    }
+
+    [HttpPost("employees")]
+    public IActionResult SaveEmployee([FromBody] EmployeeRequest request)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.SaveEmployee(request.OID, request.EmpID, request.EmpName, 
+            request.Password, request.DeptCode);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpDelete("employees/{oid}")]
+    public IActionResult DeleteEmployee(int oid)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.DeleteEmployee(oid);
+        return Ok(new { success, message });
+    }
+
+    [HttpGet("windows")]
+    public IActionResult GetWindows()
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var windows = _service.GetWindows();
+        return Ok(new { success = true, data = windows });
+    }
+
+    [HttpPost("windows")]
+    public IActionResult SaveWindow([FromBody] WindowRequest request)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.SaveWindow(request.OID, request.EmpID, request.ResponsibleDeptCodes);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpDelete("windows/{oid}")]
+    public IActionResult DeleteWindow(int oid)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var (success, message) = _service.DeleteWindow(oid);
+        return Ok(new { success, message });
+    }
+
+    [HttpGet("orders")]
+    public IActionResult GetOrders([FromQuery] string dateFrom, [FromQuery] string dateTo,
+        [FromQuery] string? empId = null, [FromQuery] string? deptCode = null)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId, deptCode);
+            var ordersList = orders.Select(o => new
+            {
+                Date = o.Date,
+                EmpID = o.EmpID,
+                MealType = o.MealType,
+                DietType = o.DietType,
+                RicePortion = o.RicePortion,
+                IsOrdered = o.IsOrdered,
+                OrderTime = o.OrderTime,
+                AdminModified = o.AdminModified
+            }).ToList();
+            return Ok(new { success = true, data = ordersList, count = ordersList.Count });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+
+    [HttpPut("orders")]
+    public IActionResult UpdateOrder([FromBody] UpdateOrderRequest request)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrEmpty(request.Date) || string.IsNullOrEmpty(request.EmpId) || 
+            string.IsNullOrEmpty(request.MealType))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.UpdateOrder(request.EmpId, request.MealType, request.DietType,
+            request.RicePortion, request.Date, request.IsCancelled);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpGet("stats/meal-quantity")]
+    public IActionResult GetMealQuantityStats([FromQuery] string dateFrom, [FromQuery] string dateTo)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var stats = _service.GetMealQuantityStats(dateFrom, dateTo);
+            return Ok(new { success = true, data = stats });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+
+    [HttpGet("stats/employee-orders")]
+    public IActionResult GetEmployeeOrderStats([FromQuery] string dateFrom, [FromQuery] string dateTo)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var stats = _service.GetEmployeeOrderStats(dateFrom, dateTo);
+            return Ok(new { success = true, data = stats.Values.ToList() });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+}
+
+public class AdminLoginRequest
+{
+    public string Account { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class DepartmentRequest
+{
+    public int? OID { get; set; }
+    public string DeptCode { get; set; } = string.Empty;
+    public string DeptName { get; set; } = string.Empty;
+}
+
+public class EmployeeRequest
+{
+    public int? OID { get; set; }
+    public string EmpID { get; set; } = string.Empty;
+    public string EmpName { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string DeptCode { get; set; } = string.Empty;
+}
+
+public class WindowRequest
+{
+    public int? OID { get; set; }
+    public string EmpID { get; set; } = string.Empty;
+    public List<string> ResponsibleDeptCodes { get; set; } = new();
+}
+
+public class UpdateOrderRequest
+{
+    public string Date { get; set; } = string.Empty;
+    public string EmpId { get; set; } = string.Empty;
+    public string MealType { get; set; } = string.Empty;
+    public string DietType { get; set; } = string.Empty;
+    public string RicePortion { get; set; } = string.Empty;
+    public bool IsCancelled { get; set; }
+}
+
+
+```
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using FoodOrderSystem.Models;
+using FoodOrderSystem.Services;
+
+namespace FoodOrderSystem.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class EmployeeController : ControllerBase
+{
+    private readonly FoodOrderService _service;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public EmployeeController(FoodOrderService service, IHttpContextAccessor httpContextAccessor)
+    {
+        _service = service;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] LoginRequest request)
+    {
+        var (success, employee) = _service.VerifyEmployee(request.EmpId, request.Password);
+
+        if (success && employee != null)
+        {
+            _httpContextAccessor.HttpContext?.Session.SetString("emp_id", employee.EmpID);
+            _httpContextAccessor.HttpContext?.Session.SetString("emp_name", employee.EmpName);
+            _httpContextAccessor.HttpContext?.Session.SetString("is_admin", "false");
+
+            return Ok(new
+            {
+                success = true,
+                message = "登入成功",
+                employee = new
+                {
+                    employee.EmpID,
+                    employee.EmpName,
+                    employee.DeptCode
+                }
+            });
+        }
+
+        return Unauthorized(new { success = false, message = "員工編號或密碼錯誤" });
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        _httpContextAccessor.HttpContext?.Session.Clear();
+        return Ok(new { success = true, message = "登出成功" });
+    }
+
+    [HttpGet("today-orders")]
+    public IActionResult GetTodayOrders()
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        var orders = _service.GetTodayOrders(empId);
+        var today = FoodOrderService.FormatDate(DateTime.Now);
+
+        var result = new
+        {
+            date = today,
+            lunch = orders.ContainsKey(MealType.LUNCH.ToString()) && orders[MealType.LUNCH.ToString()]?.IsOrdered == true
+                ? new
+                {
+                    orders[MealType.LUNCH.ToString()]!.DietType,
+                    orders[MealType.LUNCH.ToString()]!.RicePortion,
+                    orders[MealType.LUNCH.ToString()]!.OrderTime,
+                    orders[MealType.LUNCH.ToString()]!.AdminModified
+                }
+                : null,
+            dinner = orders.ContainsKey(MealType.DINNER.ToString()) && orders[MealType.DINNER.ToString()]?.IsOrdered == true
+                ? new
+                {
+                    orders[MealType.DINNER.ToString()]!.DietType,
+                    orders[MealType.DINNER.ToString()]!.RicePortion,
+                    orders[MealType.DINNER.ToString()]!.OrderTime,
+                    orders[MealType.DINNER.ToString()]!.AdminModified
+                }
+                : null,
+            lunch_cutoff = _service.CheckCutoff(MealType.LUNCH.ToString()),
+            dinner_cutoff = _service.CheckCutoff(MealType.DINNER.ToString())
+        };
+
+        return Ok(new { success = true, data = result });
+    }
+
+    [HttpPost("order")]
+    public IActionResult CreateOrder([FromBody] CreateOrderRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(request.MealType) || string.IsNullOrEmpty(request.DietType) || 
+            string.IsNullOrEmpty(request.RicePortion))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.CreateOrder(empId, request.MealType, request.DietType, 
+            request.RicePortion, request.Date);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpPost("cancel-order")]
+    public IActionResult CancelOrder([FromBody] CancelOrderRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(request.MealType))
+        {
+            return BadRequest(new { success = false, message = "參數不完整" });
+        }
+
+        var (success, message) = _service.CancelOrder(empId, request.MealType, request.Date);
+
+        if (success)
+        {
+            return Ok(new { success = true, message });
+        }
+
+        return BadRequest(new { success = false, message });
+    }
+
+    [HttpGet("weekly-orders")]
+    public IActionResult GetWeeklyOrders([FromQuery] string weekType = "current")
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        // 簡化實現，實際應根據weekType處理
+        var today = DateTime.Now;
+        var dateFrom = today.AddDays(-(int)today.DayOfWeek + 1).ToString("yyyy-MM-dd");
+        var dateTo = today.AddDays(-(int)today.DayOfWeek + 5).ToString("yyyy-MM-dd");
+
+        if (weekType == "next")
+        {
+            dateFrom = today.AddDays(-(int)today.DayOfWeek + 8).ToString("yyyy-MM-dd");
+            dateTo = today.AddDays(-(int)today.DayOfWeek + 12).ToString("yyyy-MM-dd");
+        }
+        else if (weekType == "month")
+        {
+            dateFrom = new DateTime(today.Year, today.Month, 1).ToString("yyyy-MM-dd");
+            dateTo = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)).ToString("yyyy-MM-dd");
+        }
+
+        var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId);
+        var ordersByDate = new Dictionary<string, object>();
+
+        foreach (var order in orders)
+        {
+            var dateKey = order.Date;
+            if (!ordersByDate.ContainsKey(dateKey))
+            {
+                ordersByDate[dateKey] = new Dictionary<string, object?> { { "LUNCH", null }, { "DINNER", null } };
+            }
+
+            var dateDict = (Dictionary<string, object?>)ordersByDate[dateKey];
+            dateDict[order.MealType] = new
+            {
+                order.Date,
+                order.EmpID,
+                order.MealType,
+                order.DietType,
+                order.RicePortion,
+                order.IsOrdered,
+                order.OrderTime,
+                order.AdminModified
+            };
+        }
+
+        return Ok(new { success = true, data = ordersByDate });
+    }
+
+    [HttpPost("weekly-orders")]
+    public IActionResult SaveWeeklyOrders([FromBody] WeeklyOrdersRequest request)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        var successCount = 0;
+        var errorCount = 0;
+        var errors = new List<string>();
+
+        foreach (var orderData in request.Orders)
+        {
+            if (string.IsNullOrEmpty(orderData.DietType) || string.IsNullOrEmpty(orderData.RicePortion))
+            {
+                var (success, message) = _service.CancelOrder(empId, orderData.MealType, orderData.Date);
+                if (success) successCount++; else { errorCount++; errors.Add($"{orderData.Date} {orderData.MealType}: {message}"); }
+            }
+            else
+            {
+                var (success, message) = _service.CreateOrder(empId, orderData.MealType, orderData.DietType, 
+                    orderData.RicePortion, orderData.Date);
+                if (success) successCount++; else { errorCount++; errors.Add($"{orderData.Date} {orderData.MealType}: {message}"); }
+            }
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = $"共處理 {successCount + errorCount} 筆，成功 {successCount} 筆，失敗 {errorCount} 筆",
+            success_count = successCount,
+            error_count = errorCount,
+            errors
+        });
+    }
+
+    [HttpGet("history")]
+    public IActionResult GetHistory([FromQuery] string dateFrom, [FromQuery] string dateTo)
+    {
+        var empId = _httpContextAccessor.HttpContext?.Session.GetString("emp_id");
+        if (string.IsNullOrEmpty(empId))
+        {
+            return Unauthorized(new { success = false, message = "請先登入" });
+        }
+
+        if (string.IsNullOrEmpty(dateFrom) || string.IsNullOrEmpty(dateTo))
+        {
+            return BadRequest(new { success = false, message = "請提供日期區間" });
+        }
+
+        try
+        {
+            var orders = _service.GetOrdersByDateRange(dateFrom, dateTo, empId);
+            var ordersList = orders.Select(o => new
+            {
+                Date = o.Date,
+                EmpID = o.EmpID,
+                MealType = o.MealType,
+                DietType = o.DietType,
+                RicePortion = o.RicePortion,
+                IsOrdered = o.IsOrdered,
+                OrderTime = o.OrderTime,
+                AdminModified = o.AdminModified
+            }).ToList();
+            return Ok(new { success = true, data = ordersList, count = ordersList.Count });
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new { success = false, message = e.Message });
+        }
+    }
+}
+
+public class LoginRequest
+{
+    public string EmpId { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class CreateOrderRequest
+{
+    public string MealType { get; set; } = string.Empty;
+    public string DietType { get; set; } = string.Empty;
+    public string RicePortion { get; set; } = string.Empty;
+    public string? Date { get; set; }
+}
+
+public class CancelOrderRequest
+{
+    public string MealType { get; set; } = string.Empty;
+    public string? Date { get; set; }
+}
+
+public class WeeklyOrdersRequest
+{
+    public List<WeeklyOrderItem> Orders { get; set; } = new();
+}
+
+public class WeeklyOrderItem
+{
+    public string Date { get; set; } = string.Empty;
+    public string MealType { get; set; } = string.Empty;
+    public string? DietType { get; set; }
+    public string? RicePortion { get; set; }
+}
+
+
+```
+
+
+添加必要的 using 语句并修复编译问题：
+
+
+```csharp
+using FoodOrderSystem.Models;
+using Newtonsoft.Json;
+using System.Linq;
+
+namespace FoodOrderSystem.Services;
+
+/// <summary>
+/// 訂便當系統核心服務
+/// </summary>
+public class FoodOrderService
+{
+    private readonly string _dataDir;
+    private readonly string _deptFile;
+    private readonly string _employeeFile;
+    private readonly string _windowFile;
+    private readonly string _ordersFile;
+
+    // 截止時間設定
+    public const int LUNCH_CUTOFF_HOUR = 8;
+    public const int LUNCH_CUTOFF_MINUTE = 30;
+    public const int DINNER_CUTOFF_HOUR = 16;
+    public const int DINNER_CUTOFF_MINUTE = 0;
+
+    // 管理員帳號密碼
+    public const string ADMIN_ACCOUNT = "admin";
+    public const string ADMIN_PASSWORD = "1234";
+
+    public FoodOrderService(IWebHostEnvironment env)
+    {
+        _dataDir = Path.Combine(env.ContentRootPath, "data");
+        Directory.CreateDirectory(_dataDir);
+
+        _deptFile = Path.Combine(_dataDir, "departments.json");
+        _employeeFile = Path.Combine(_dataDir, "employees.json");
+        _windowFile = Path.Combine(_dataDir, "windows.json");
+        _ordersFile = Path.Combine(_dataDir, "orders.json");
+
+        InitializeData();
+    }
+
+    private void InitializeData()
+    {
+        // 初始化部門
+        if (!File.Exists(_deptFile))
+        {
+            var defaultDepts = new List<Department>
+            {
+                new() { OID = 1, DeptCode = "A10", DeptName = "生產部" },
+                new() { OID = 2, DeptCode = "B20", DeptName = "倉儲部" },
+                new() { OID = 3, DeptCode = "C30", DeptName = "行政部" }
+            };
+            SaveJson(_deptFile, defaultDepts);
+        }
+
+        // 初始化員工
+        if (!File.Exists(_employeeFile))
+        {
+            var defaultEmployees = new List<Employee>
+            {
+                new() { OID = 101, EmpID = "93800", EmpName = "林淑鈺", Password = "1234", DeptCode = "A10" },
+                new() { OID = 102, EmpID = "28109", EmpName = "詹金璋", Password = "1234", DeptCode = "B20" },
+                new() { OID = 103, EmpID = "2400305", EmpName = "王瀚章", Password = "1234", DeptCode = "C30" }
+            };
+            SaveJson(_employeeFile, defaultEmployees);
+        }
+
+        // 初始化窗口
+        if (!File.Exists(_windowFile))
+        {
+            var defaultWindows = new List<OrderWindow>
+            {
+                new() { OID = 1, EmpID = "28109", ResponsibleDeptCodes = new List<string> { "A10", "C30" } }
+            };
+            SaveJson(_windowFile, defaultWindows);
+        }
+
+        // 初始化訂單（空字典）
+        if (!File.Exists(_ordersFile))
+        {
+            SaveJson(_ordersFile, new Dictionary<string, MealOrder>());
+        }
+    }
+
+    private T LoadJson<T>(string filepath)
+    {
+        try
+        {
+            if (!File.Exists(filepath))
+            {
+                if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                {
+                    return (T)Activator.CreateInstance(typeof(T))!;
+                }
+                return Activator.CreateInstance<T>();
+            }
+
+            var json = File.ReadAllText(filepath, System.Text.Encoding.UTF8);
+            return JsonConvert.DeserializeObject<T>(json) ?? Activator.CreateInstance<T>();
+        }
+        catch
+        {
+            if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Dictionary<,>))
+            {
+                return (T)Activator.CreateInstance(typeof(T))!;
+            }
+            return Activator.CreateInstance<T>();
+        }
+    }
+
+    private void SaveJson<T>(string filepath, T data)
+    {
+        var json = JsonConvert.SerializeObject(data, Formatting.Indented);
+        File.WriteAllText(filepath, json, System.Text.Encoding.UTF8);
+    }
+
+    // ========== 日期時間輔助函數 ==========
+
+    public static string FormatDate(DateTime date)
+    {
+        return date.ToString("yyyy-MM-dd");
+    }
+
+    public static DateTime ParseDate(string dateStr)
+    {
+        return DateTime.ParseExact(dateStr, "yyyy-MM-dd", null);
+    }
+
+    public bool CheckCutoff(string mealType, string? dateStr = null)
+    {
+        var today = DateTime.Now;
+        if (!string.IsNullOrEmpty(dateStr))
+        {
+            var targetDate = ParseDate(dateStr);
+            if (targetDate.Date != today.Date)
+            {
+                return targetDate.Date < today.Date;
+            }
+        }
+
+        var now = DateTime.Now;
+
+        if (mealType == MealType.LUNCH.ToString())
+        {
+            var cutoffTime = now.Date.AddHours(LUNCH_CUTOFF_HOUR).AddMinutes(LUNCH_CUTOFF_MINUTE);
+            return now > cutoffTime;
+        }
+        else if (mealType == MealType.DINNER.ToString())
+        {
+            var cutoffTime = now.Date.AddHours(DINNER_CUTOFF_HOUR).AddMinutes(DINNER_CUTOFF_MINUTE);
+            return now > cutoffTime;
+        }
+
+        return false;
+    }
+
+    // ========== 部門主檔管理 ==========
+
+    public List<Department> GetDepartments()
+    {
+        return LoadJson<List<Department>>(_deptFile);
+    }
+
+    public Department? GetDepartment(string deptCode)
+    {
+        var depts = GetDepartments();
+        return depts.FirstOrDefault(d => d.DeptCode == deptCode);
+    }
+
+    public (bool Success, string Message) SaveDepartment(int? oid, string deptCode, string deptName)
+    {
+        var depts = GetDepartments();
+        deptCode = deptCode.Trim().ToUpper();
+        deptName = deptName.Trim();
+
+        if (string.IsNullOrEmpty(deptCode) || string.IsNullOrEmpty(deptName))
+        {
+            return (false, "部門代號和部門名稱不能為空！");
+        }
+
+        if (oid.HasValue)
+        {
+            var dept = depts.FirstOrDefault(d => d.OID == oid.Value);
+            if (dept == null)
+            {
+                return (false, "找不到指定的部門！");
+            }
+
+            if (depts.Any(d => d.DeptCode == deptCode && d.OID != oid.Value))
+            {
+                return (false, "部門代號已存在！");
+            }
+
+            dept.DeptCode = deptCode;
+            dept.DeptName = deptName;
+            SaveJson(_deptFile, depts);
+            return (true, "部門資料修改成功！");
+        }
+        else
+        {
+            if (depts.Any(d => d.DeptCode == deptCode))
+            {
+                return (false, "部門代號已存在！");
+            }
+
+            var newOid = depts.Count > 0 ? depts.Max(d => d.OID) + 1 : 1;
+            depts.Add(new Department { OID = newOid, DeptCode = deptCode, DeptName = deptName });
+            SaveJson(_deptFile, depts);
+            return (true, "部門資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteDepartment(int oid)
+    {
+        var depts = GetDepartments();
+        depts.RemoveAll(d => d.OID == oid);
+        SaveJson(_deptFile, depts);
+        return (true, "部門資料刪除成功！");
+    }
+
+    // ========== 員工主檔管理 ==========
+
+    public List<Employee> GetEmployees()
+    {
+        return LoadJson<List<Employee>>(_employeeFile);
+    }
+
+    public Employee? GetEmployee(string empId)
+    {
+        var employees = GetEmployees();
+        return employees.FirstOrDefault(e => e.EmpID == empId);
+    }
+
+    public (bool Success, Employee? Employee) VerifyEmployee(string empId, string password)
+    {
+        var emp = GetEmployee(empId.Trim().ToUpper());
+        if (emp == null || emp.Password != password)
+        {
+            return (false, null);
+        }
+        return (true, emp);
+    }
+
+    public (bool Success, string Message) SaveEmployee(int? oid, string empId, string empName, string password, string deptCode)
+    {
+        var employees = GetEmployees();
+        empId = empId.Trim().ToUpper();
+        empName = empName.Trim();
+        deptCode = deptCode.Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(empId) || string.IsNullOrEmpty(empName) || 
+            string.IsNullOrEmpty(password) || string.IsNullOrEmpty(deptCode))
+        {
+            return (false, "員工編號、姓名、密碼和部門都不能為空！");
+        }
+
+        if (GetDepartment(deptCode) == null)
+        {
+            return (false, "指定的部門不存在！");
+        }
+
+        if (oid.HasValue)
+        {
+            var emp = employees.FirstOrDefault(e => e.OID == oid.Value);
+            if (emp == null)
+            {
+                return (false, "找不到指定的員工！");
+            }
+
+            if (employees.Any(e => e.EmpID == empId && e.OID != oid.Value))
+            {
+                return (false, "員工編號已存在！");
+            }
+
+            emp.EmpID = empId;
+            emp.EmpName = empName;
+            emp.Password = password;
+            emp.DeptCode = deptCode;
+            SaveJson(_employeeFile, employees);
+            return (true, "員工資料修改成功！");
+        }
+        else
+        {
+            if (employees.Any(e => e.EmpID == empId))
+            {
+                return (false, "員工編號已存在！");
+            }
+
+            var newOid = employees.Count > 0 ? employees.Max(e => e.OID) + 1 : 101;
+            employees.Add(new Employee
+            {
+                OID = newOid,
+                EmpID = empId,
+                EmpName = empName,
+                Password = password,
+                DeptCode = deptCode
+            });
+            SaveJson(_employeeFile, employees);
+            return (true, "員工資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteEmployee(int oid)
+    {
+        var employees = GetEmployees();
+        employees.RemoveAll(e => e.OID == oid);
+        SaveJson(_employeeFile, employees);
+        return (true, "員工資料刪除成功！");
+    }
+
+    // ========== 窗口主檔管理 ==========
+
+    public List<OrderWindow> GetWindows()
+    {
+        return LoadJson<List<OrderWindow>>(_windowFile);
+    }
+
+    public (bool Success, string Message) SaveWindow(int? oid, string empId, List<string> responsibleDeptCodes)
+    {
+        var windows = GetWindows();
+        empId = empId.Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(empId))
+        {
+            return (false, "請選擇一個窗口員工！");
+        }
+
+        if (responsibleDeptCodes == null || responsibleDeptCodes.Count == 0)
+        {
+            return (false, "請至少選擇一個負責單位！");
+        }
+
+        if (GetEmployee(empId) == null)
+        {
+            return (false, "指定的員工不存在！");
+        }
+
+        if (oid.HasValue)
+        {
+            var win = windows.FirstOrDefault(w => w.OID == oid.Value);
+            if (win == null)
+            {
+                return (false, "找不到指定的窗口！");
+            }
+
+            win.EmpID = empId;
+            win.ResponsibleDeptCodes = responsibleDeptCodes;
+            SaveJson(_windowFile, windows);
+            return (true, "訂餐窗口資料修改成功！");
+        }
+        else
+        {
+            if (windows.Any(w => w.EmpID == empId))
+            {
+                return (false, "該員工已經是訂餐窗口！請使用編輯功能修改。");
+            }
+
+            var newOid = windows.Count > 0 ? windows.Max(w => w.OID) + 1 : 1;
+            windows.Add(new OrderWindow
+            {
+                OID = newOid,
+                EmpID = empId,
+                ResponsibleDeptCodes = responsibleDeptCodes
+            });
+            SaveJson(_windowFile, windows);
+            return (true, "訂餐窗口資料新增成功！");
+        }
+    }
+
+    public (bool Success, string Message) DeleteWindow(int oid)
+    {
+        var windows = GetWindows();
+        windows.RemoveAll(w => w.OID == oid);
+        SaveJson(_windowFile, windows);
+        return (true, "訂餐窗口資料刪除成功！");
+    }
+
+    // ========== 訂單管理 ==========
+
+    private string GetOrderKey(string dateStr, string empId, string mealType)
+    {
+        return $"{dateStr}_{empId}_{mealType}";
+    }
+
+    private Dictionary<string, MealOrder> GetOrders()
+    {
+        return LoadJson<Dictionary<string, MealOrder>>(_ordersFile);
+    }
+
+    public MealOrder? GetOrder(string dateStr, string empId, string mealType)
+    {
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+        return orders.TryGetValue(key, out var order) ? order : null;
+    }
+
+    public Dictionary<string, MealOrder?> GetTodayOrders(string empId)
+    {
+        var today = FormatDate(DateTime.Now);
+        return new Dictionary<string, MealOrder?>
+        {
+            { MealType.LUNCH.ToString(), GetOrder(today, empId, MealType.LUNCH.ToString()) },
+            { MealType.DINNER.ToString(), GetOrder(today, empId, MealType.DINNER.ToString()) }
+        };
+    }
+
+    public (bool Success, string Message) CreateOrder(string empId, string mealType, string dietType, 
+        string ricePortion, string? dateStr = null, bool isAdmin = false)
+    {
+        dateStr ??= FormatDate(DateTime.Now);
+
+        if (!isAdmin && CheckCutoff(mealType, dateStr))
+        {
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (false, $"{mealName}訂餐時間已截止！");
+        }
+
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (GetEmployee(empId) == null)
+        {
+            return (false, "員工不存在！");
+        }
+
+        var orderTime = DateTime.Now.ToString("HH:mm:ss");
+        orders[key] = new MealOrder
+        {
+            EmpID = empId,
+            MealType = mealType,
+            DietType = dietType,
+            RicePortion = ricePortion,
+            IsOrdered = true,
+            OrderTime = orderTime,
+            AdminModified = isAdmin
+        };
+
+        SaveJson(_ordersFile, orders);
+        var mealName2 = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+        return (true, $"{mealName2}訂購成功！");
+    }
+
+    public (bool Success, string Message) CancelOrder(string empId, string mealType, string? dateStr = null, bool isAdmin = false)
+    {
+        dateStr ??= FormatDate(DateTime.Now);
+
+        if (!isAdmin && CheckCutoff(mealType, dateStr))
+        {
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (false, $"{mealName}訂餐時間已截止，無法取消！");
+        }
+
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (orders.ContainsKey(key))
+        {
+            orders.Remove(key);
+            SaveJson(_ordersFile, orders);
+            var mealName = mealType == MealType.LUNCH.ToString() ? "午餐" : "晚餐";
+            return (true, $"{mealName}訂單已取消！");
+        }
+
+        return (false, "找不到該訂單！");
+    }
+
+    public (bool Success, string Message) UpdateOrder(string empId, string mealType, string dietType,
+        string ricePortion, string dateStr, bool isCancelled = false)
+    {
+        var orders = GetOrders();
+        var key = GetOrderKey(dateStr, empId, mealType);
+
+        if (isCancelled)
+        {
+            if (orders.ContainsKey(key))
+            {
+                orders.Remove(key);
+                SaveJson(_ordersFile, orders);
+                return (true, "訂單已取消！");
+            }
+            return (false, "找不到該訂單！");
+        }
+        else
+        {
+            if (!orders.ContainsKey(key))
+            {
+                return (false, "找不到該訂單！");
+            }
+
+            var order = orders[key];
+            order.DietType = dietType;
+            order.RicePortion = ricePortion;
+            order.AdminModified = true;
+            SaveJson(_ordersFile, orders);
+            return (true, "訂單修改成功！");
+        }
+    }
+
+    public List<OrderWithDate> GetOrdersByDateRange(string dateFrom, string dateTo, string? empId = null, string? deptCode = null)
+    {
+        var dateFromDt = ParseDate(dateFrom);
+        var dateToDt = ParseDate(dateTo);
+        var orders = GetOrders();
+        var employees = GetEmployees();
+        var employeeMap = employees.ToDictionary(e => e.EmpID);
+
+        var result = new List<OrderWithDate>();
+
+        foreach (var kvp in orders)
+        {
+            var order = kvp.Value;
+            if (!order.IsOrdered)
+                continue;
+
+            var parts = kvp.Key.Split('_');
+            if (parts.Length != 3)
+                continue;
+
+            var orderDate = parts[0];
+            var orderEmpId = parts[1];
+            var orderMealType = parts[2];
+
+            // 檢查日期是否在範圍內
+            var orderDateDt = ParseDate(orderDate);
+            if (orderDateDt < dateFromDt || orderDateDt > dateToDt)
+                continue;
+
+            if (!string.IsNullOrEmpty(empId) && orderEmpId != empId)
+                continue;
+
+            if (!string.IsNullOrEmpty(deptCode))
+            {
+                if (!employeeMap.TryGetValue(orderEmpId, out var emp) || emp.DeptCode != deptCode)
+                    continue;
+            }
+
+            var orderInfo = new OrderWithDate
+            {
+                Date = orderDate,
+                EmpID = order.EmpID,
+                MealType = order.MealType,
+                DietType = order.DietType,
+                RicePortion = order.RicePortion,
+                IsOrdered = order.IsOrdered,
+                OrderTime = order.OrderTime,
+                AdminModified = order.AdminModified
+            };
+            result.Add(orderInfo);
+        }
+
+        return result.OrderBy(o => o.Date).ToList();
+    }
+
+    public bool VerifyAdmin(string account, string password)
+    {
+        return account == ADMIN_ACCOUNT && password == ADMIN_PASSWORD;
+    }
+
+    // ========== 統計與匯出 ==========
+
+    public Dictionary<string, int> GetMealQuantityStats(string dateFrom, string dateTo)
+    {
+        var orders = GetOrdersByDateRange(dateFrom, dateTo);
+        var counts = new Dictionary<string, int>();
+
+        foreach (var order in orders)
+        {
+            var key = $"{order.Date}_{order.MealType}_{order.DietType}_{order.RicePortion}";
+            if (!counts.ContainsKey(key))
+                counts[key] = 0;
+            counts[key]++;
+        }
+
+        return counts;
+    }
+
+    public Dictionary<string, EmployeeOrderStats> GetEmployeeOrderStats(string dateFrom, string dateTo)
+    {
+        var orders = GetOrdersByDateRange(dateFrom, dateTo);
+        var employees = GetEmployees();
+        var stats = new Dictionary<string, EmployeeOrderStats>();
+
+        foreach (var emp in employees)
+        {
+            stats[emp.EmpID] = new EmployeeOrderStats
+            {
+                EmpID = emp.EmpID,
+                EmpName = emp.EmpName,
+                LunchCount = 0,
+                DinnerCount = 0,
+                TotalCount = 0
+            };
+        }
+
+        foreach (var order in orders)
+        {
+            if (stats.TryGetValue(order.EmpID, out var stat))
+            {
+                stat.TotalCount++;
+                if (order.MealType == MealType.LUNCH.ToString())
+                    stat.LunchCount++;
+                else if (order.MealType == MealType.DINNER.ToString())
+                    stat.DinnerCount++;
+            }
+        }
+
+        return stats;
+    }
+}
+
+/// <summary>
+/// 員工訂購統計
+/// </summary>
+public class EmployeeOrderStats
+{
+    public string EmpID { get; set; } = string.Empty;
+    public string EmpName { get; set; } = string.Empty;
+    public int LunchCount { get; set; }
+    public int DinnerCount { get; set; }
+    public int TotalCount { get; set; }
+}
+
+
 ```
 
