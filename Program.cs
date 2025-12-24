@@ -66,7 +66,11 @@ app.MapGet("/", async (HttpContext context) =>
 
 app.MapGet("/employee", async (HttpContext context) =>
 {
-    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "index.html");
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "index_api.html");
+    if (!File.Exists(htmlPath))
+    {
+        htmlPath = Path.Combine(app.Environment.ContentRootPath, "index.html");
+    }
     if (File.Exists(htmlPath))
     {
         context.Response.ContentType = "text/html";

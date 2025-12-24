@@ -1,5 +1,5 @@
 # 工廠訂便當系統
-_Exported on 12/24/2025 at 17:18:11 GMT+8 from Cursor (2.2.27)_
+_Exported on 12/24/2025 at 17:31:36 GMT+8 from Cursor (2.2.27)_
 
 ---
 
@@ -14374,5 +14374,792 @@ public class EmployeeOrderStats
 }
 
 
+```
+
+---
+
+**User**
+
+開始手動測試，直接使用User介面測試，從員工登入畫面開始
+
+---
+
+**Cursor**
+
+
+检查并修复前端代码，使其连接到 C# 后端 API，然后运行项目进行测试：
+
+
+
+修改前端代码，使其连接到 C# 后端 API。先启动服务，然后更新前端登录功能：
+
+
+```html
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工廠員工訂餐系統</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+        }
+        
+        #login-section input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        
+        .order-tabs {
+            display: flex;
+            margin-bottom: 0; 
+            border-bottom: 1px solid #ddd;
+        }
+        .tab-button {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-bottom: none; 
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            background-color: #f0f0f0;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            margin-right: 2px; 
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .tab-button.active {
+            color: white;
+            background-color: #007bff;
+            border-color: #007bff;
+            position: relative;
+            z-index: 1; 
+            margin-bottom: -1px;
+        }
+        .tab-content {
+            display: none;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-top: none;
+            min-height: 250px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        
+        .meal-selection {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .meal-box {
+            flex: 1;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .lunch {
+            background-color: #e6f7ff;
+            border: 2px solid #91d5ff;
+        }
+        
+        .dinner {
+            background-color: #fff0f6;
+            border: 2px solid #ffadd2;
+        }
+        
+        .meal-box:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .meal-box h3 {
+            margin-top: 0;
+            font-size: 1.5em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>工廠員工訂餐系統</h2>
+        
+        <div id="login-section">
+            <input type="text" id="employee-id" placeholder="請輸入您的員工編號(93800)" value="93800">
+            <input type="password" id="employee-password" placeholder="請輸入密碼(1234)" value="1234"> 
+            <button class="btn btn-order" onclick="login()">登入</button>
+            <div id="login-error" style="color: red; margin-top: 10px; display: none;"></div>
+        </div>
+
+        <div id="order-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <p style="margin: 0;"><strong>歡迎您，<span id="employee-name"></span>！</strong></p>
+                <button class="btn btn-cancel" onclick="logout()" style="width: auto; padding: 5px 10px;">登出</button> 
+            </div>
+            
+            <div class="order-tabs">
+                <button class="tab-button active" onclick="openOrderTab(event, 'TodayOrder')">今日訂餐</button>
+                <button class="tab-button" onclick="openOrderTab(event, 'HistoryOrder')">歷史紀錄查詢</button>
+            </div>
+            
+            <div id="TodayOrder" class="tab-content active">
+                <div id="status-message" class="message"></div>
+                <p>
+                    今日訂餐截止時間：<strong style="color: red;">午餐 08:30 / 晚餐 16:00 (4:00 PM)</strong>
+                    <br>
+                    目前時間：<span id="current-time"></span>
+                </p>
+
+                <div class="meal-selection">
+                    <div class="meal-box lunch">
+                        <h3>午餐 (Lunch)</h3>
+                        <p id="lunch-status">尚未訂購</p>
+                        <button class="btn btn-order" id="order-lunch-btn" onclick="openModal('LUNCH')">我要訂購</button>
+                        <button class="btn btn-cancel" id="cancel-lunch-btn" onclick="cancelOrder('LUNCH')" style="display: none;">取消訂單</button>
+                    </div>
+
+                    <div class="meal-box dinner">
+                        <h3>晚餐 (Dinner)</h3>
+                        <p id="dinner-status">尚未訂購</p>
+                        <button class="btn btn-order" id="order-dinner-btn" onclick="openModal('DINNER')">我要訂購</button>
+                        <button class="btn btn-cancel" id="cancel-dinner-btn" onclick="cancelOrder('DINNER')" style="display: none;">取消訂單</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="HistoryOrder" class="tab-content">
+                <div style="margin-bottom: 15px;">
+                    <label>從:</label>
+                    <input type="date" id="history-date-from" style="width: auto; margin: 0 10px;">
+                    <label>到:</label>
+                    <input type="date" id="history-date-to" style="width: auto; margin: 0 10px;">
+                    <button class="btn btn-order" onclick="loadHistoryOrders()" style="width: auto;">查詢</button>
+                </div>
+                
+                <div id="history-result">
+                    <p style="color: #666;">請輸入日期區間查詢。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">訂購餐點</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="option-group">
+                <label>選擇一：葷素</label>
+                <input type="radio" id="diet-meat" name="diet" value="MEAT" checked>
+                <label for="diet-meat">葷食</label>
+                <input type="radio" id="diet-veg" name="diet" value="VEG">
+                <label for="diet-veg">素食</label>
+            </div>
+
+            <div class="option-group">
+                <label>選擇二：飯量</label>
+                <input type="radio" id="rice-full" name="rice" value="FULL" checked>
+                <label for="rice-full">全飯</label>
+                <input type="radio" id="rice-half" name="rice" value="HALF">
+                <label for="rice-half">半飯</label>
+            </div>           
+
+            <button class="btn btn-order" onclick="confirmOrder()">確認訂購</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/employee';
+        let currentMealType = '';
+        let loggedInEmpId = null;
+        let employeeName = '';
+
+        const mealMap = { LUNCH: '午餐', DINNER: '晚餐' };
+        const dietMap = { MEAT: '葷食', VEG: '素食' };
+        const riceMap = { FULL: '全飯', HALF: '半飯' };
+
+        // 登入
+        async function login() {
+            const empId = document.getElementById('employee-id').value.trim();
+            const password = document.getElementById('employee-password').value;
+            const errorDiv = document.getElementById('login-error');
+
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        emp_id: empId,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    loggedInEmpId = data.employee.EmpID;
+                    employeeName = data.employee.EmpName;
+                    document.getElementById('employee-name').textContent = employeeName;
+                    document.getElementById('login-section').style.display = 'none';
+                    document.getElementById('order-section').style.display = 'block';
+                    errorDiv.style.display = 'none';
+                    updateOrderUI();
+                } else {
+                    errorDiv.textContent = data.message || '登入失敗';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = '登入失敗: ' + error.message;
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        // 登出
+        async function logout() {
+            try {
+                await fetch(`${API_BASE}/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                loggedInEmpId = null;
+                employeeName = '';
+                document.getElementById('login-section').style.display = 'block';
+                document.getElementById('order-section').style.display = 'none';
+                document.getElementById('employee-id').value = '';
+                document.getElementById('employee-password').value = '';
+            } catch (error) {
+                alert('登出失敗: ' + error.message);
+            }
+        }
+
+        // 更新訂單UI
+        async function updateOrderUI() {
+            if (!loggedInEmpId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/today-orders`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    updateMealStatus('LUNCH', data.lunch, data.lunch_cutoff);
+                    updateMealStatus('DINNER', data.dinner, data.dinner_cutoff);
+
+                    // 更新狀態訊息
+                    const statusMessage = document.getElementById('status-message');
+                    if (data.lunch_cutoff && data.dinner_cutoff) {
+                        statusMessage.className = 'message alert-danger';
+                        statusMessage.textContent = '今日訂餐時間已截止 (午餐 08:30 / 晚餐 16:00)。您已無法修改訂單。';
+                    } else if (data.lunch_cutoff) {
+                        statusMessage.className = 'message alert-warning';
+                        statusMessage.textContent = '今日午餐訂餐已截止 (08:30)。晚餐訂餐仍開放至 16:00。';
+                    } else {
+                        statusMessage.className = 'message alert-success';
+                        statusMessage.textContent = '訂餐時間內，您可以隨時修改或取消。';
+                    }
+                }
+            } catch (error) {
+                console.error('載入訂單失敗:', error);
+            }
+        }
+
+        function updateMealStatus(mealType, order, isCutoff) {
+            const statusP = document.getElementById(`${mealType.toLowerCase()}-status`);
+            const orderBtn = document.getElementById(`order-${mealType.toLowerCase()}-btn`);
+            const cancelBtn = document.getElementById(`cancel-${mealType.toLowerCase()}-btn`);
+
+            if (order && order.DietType) {
+                const dietText = dietMap[order.DietType] || order.DietType;
+                const riceText = riceMap[order.RicePortion] || order.RicePortion;
+                statusP.textContent = `✅ 已訂購 (${dietText} / ${riceText})`;
+                statusP.style.color = '#155724';
+                orderBtn.style.display = 'none';
+                cancelBtn.style.display = isCutoff ? 'none' : 'block';
+            } else {
+                statusP.textContent = '尚未訂購';
+                statusP.style.color = '#333';
+                orderBtn.style.display = isCutoff ? 'none' : 'block';
+                cancelBtn.style.display = 'none';
+            }
+        }
+
+        // 打開訂購Modal
+        function openModal(mealType) {
+            currentMealType = mealType;
+            document.getElementById('modal-title').textContent = mealType === 'LUNCH' ? '訂購午餐選項' : '訂購晚餐選項';
+            document.getElementById('orderModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('orderModal').style.display = 'none';
+            currentMealType = '';
+        }
+
+        // 確認訂購
+        async function confirmOrder() {
+            if (!loggedInEmpId) return;
+
+            const dietType = document.querySelector('input[name="diet"]:checked').value;
+            const ricePortion = document.querySelector('input[name="rice"]:checked').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        meal_type: currentMealType,
+                        diet_type: dietType,
+                        rice_portion: ricePortion
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    closeModal();
+                    updateOrderUI();
+                } else {
+                    alert(data.message || '訂購失敗');
+                }
+            } catch (error) {
+                alert('訂購失敗: ' + error.message);
+            }
+        }
+
+        // 取消訂單
+        async function cancelOrder(mealType) {
+            if (!loggedInEmpId) return;
+
+            const mealName = mealType === 'LUNCH' ? '午餐' : '晚餐';
+            if (!confirm(`確定要取消今日的 ${mealName} 訂單嗎？`)) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/cancel-order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        meal_type: mealType
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    updateOrderUI();
+                } else {
+                    alert(data.message || '取消失敗');
+                }
+            } catch (error) {
+                alert('取消失敗: ' + error.message);
+            }
+        }
+
+        // 頁籤切換
+        function openOrderTab(evt, tabName) {
+            const tabcontent = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            
+            const tablinks = document.getElementsByClassName("tab-button");
+            for (let i = 0; i < tablinks.length; i++) {
+                tablinks[i].classList.remove("active");
+            }
+            
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.classList.add("active");
+
+            if (tabName === 'HistoryOrder') {
+                // 設置預設日期為本月
+                const today = new Date();
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                document.getElementById('history-date-from').value = formatDate(firstDay);
+                document.getElementById('history-date-to').value = formatDate(lastDay);
+            }
+        }
+
+        // 載入歷史訂單
+        async function loadHistoryOrders() {
+            const dateFrom = document.getElementById('history-date-from').value;
+            const dateTo = document.getElementById('history-date-to').value;
+
+            if (!dateFrom || !dateTo) {
+                alert('請選擇日期區間');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/history?date_from=${dateFrom}&date_to=${dateTo}`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                const resultDiv = document.getElementById('history-result');
+                if (result.success && result.data && result.data.length > 0) {
+                    let html = `<h4>總共查詢到 ${result.count} 筆訂單</h4><table style="width:100%; border-collapse:collapse;"><thead><tr><th style="border:1px solid #ddd; padding:8px;">日期</th><th style="border:1px solid #ddd; padding:8px;">餐別</th><th style="border:1px solid #ddd; padding:8px;">葷素</th><th style="border:1px solid #ddd; padding:8px;">飯量</th></tr></thead><tbody>`;
+                    
+                    result.data.forEach(order => {
+                        html += `<tr><td style="border:1px solid #ddd; padding:8px;">${order.Date}</td><td style="border:1px solid #ddd; padding:8px;">${mealMap[order.MealType] || order.MealType}</td><td style="border:1px solid #ddd; padding:8px;">${dietMap[order.DietType] || order.DietType}</td><td style="border:1px solid #ddd; padding:8px;">${riceMap[order.RicePortion] || order.RicePortion}</td></tr>`;
+                    });
+                    
+                    html += '</tbody></table>';
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: #999;">在 ${dateFrom} 至 ${dateTo} 期間沒有訂購紀錄。</p>`;
+                }
+            } catch (error) {
+                document.getElementById('history-result').innerHTML = `<p style="color: red;">查詢失敗: ${error.message}</p>`;
+            }
+        }
+
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // 更新時間顯示
+        function updateTimeDisplay() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        setInterval(updateTimeDisplay, 1000);
+        updateTimeDisplay();
+    </script>
+</body>
+</html>
+
+```
+
+```csharp
+using FoodOrderSystem.Services;
+using Microsoft.AspNetCore.HttpOverrides;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Session support
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+// Services
+builder.Services.AddSingleton<FoodOrderService>();
+builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors();
+app.UseSession();
+app.UseStaticFiles();
+app.UseRouting();
+
+// API routes
+app.MapControllers();
+
+// Serve static HTML files
+app.MapGet("/", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "index.html");
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+    else
+    {
+        await context.Response.WriteAsync("API Service is running. Please check /swagger for API documentation.");
+    }
+});
+
+app.MapGet("/employee", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "index_api.html");
+    if (!File.Exists(htmlPath))
+    {
+        htmlPath = Path.Combine(app.Environment.ContentRootPath, "index.html");
+    }
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+});
+
+app.MapGet("/admin/login", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "admin_login.html");
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+});
+
+app.MapGet("/admin", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "admin_dashboard.html");
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+});
+
+app.MapGet("/test", async (HttpContext context) =>
+{
+    var htmlPath = Path.Combine(app.Environment.ContentRootPath, "test_page.html");
+    if (File.Exists(htmlPath))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(htmlPath);
+    }
+});
+
+app.Run("http://localhost:5000");
+
+
+```
+
+
+已创建连接到 C# API 的前端页面，服务应在后台运行。等待几秒后检查服务状态，并准备测试说明：
+
+
+```markdown
+# 開始手動測試 - 員工登入畫面
+
+## 服務狀態
+
+C# .NET 7.0 後端服務應該已經在運行。
+
+## 測試步驟
+
+### 1. 打開瀏覽器
+
+訪問以下網址：
+
+```
+http://localhost:5000/employee
+```
+
+### 2. 員工登入畫面測試
+
+您應該看到：
+- ✅ 標題「工廠員工訂餐系統」
+- ✅ 員工編號輸入框（預設值：93800）
+- ✅ 密碼輸入框（預設值：1234）
+- ✅ 「登入」按鈕
+
+### 3. 執行登入測試
+
+**測試用例 1：正確的帳號密碼**
+
+1. 確保員工編號為：`93800`
+2. 確保密碼為：`1234`
+3. 點擊「登入」按鈕
+4. **預期結果：**
+   - ✅ 登入成功
+   - ✅ 顯示「歡迎您，林淑鈺！」
+   - ✅ 顯示「今日訂餐」頁籤
+   - ✅ 顯示午餐和晚餐的訂購選項
+
+**測試用例 2：錯誤的密碼**
+
+1. 員工編號：`93800`
+2. 密碼：`wrong`
+3. 點擊「登入」
+4. **預期結果：**
+   - ❌ 顯示錯誤訊息「員工編號或密碼錯誤」
+
+**測試用例 3：不存在的員工編號**
+
+1. 員工編號：`99999`
+2. 密碼：`1234`
+3. 點擊「登入」
+4. **預期結果：**
+   - ❌ 顯示錯誤訊息「員工編號或密碼錯誤」
+
+### 4. 登入成功後的畫面
+
+登入成功後應該看到：
+
+- ✅ 「歡迎您，[員工姓名]！」訊息
+- ✅ 「登出」按鈕
+- ✅ 「今日訂餐」頁籤（已選中）
+- ✅ 「歷史紀錄查詢」頁籤
+- ✅ 午餐訂購區域（顯示狀態、訂購按鈕）
+- ✅ 晚餐訂購區域（顯示狀態、訂購按鈕）
+- ✅ 截止時間提醒（午餐 08:30 / 晚餐 16:00）
+- ✅ 當前時間顯示
+
+## 常見問題排查
+
+### 問題 1：無法訪問頁面
+
+**解決方案：**
+- 確認服務是否運行：檢查終端是否有錯誤訊息
+- 確認 URL 正確：`http://localhost:5000/employee`
+- 嘗試訪問 `http://localhost:5000/` 查看服務是否運行
+
+### 問題 2：登入按鈕沒有反應
+
+**解決方案：**
+- 打開瀏覽器開發者工具（F12）
+- 查看 Console 是否有錯誤訊息
+- 查看 Network 標籤，確認 API 請求是否發送
+
+### 問題 3：登入失敗但沒有錯誤訊息
+
+**解決方案：**
+- 檢查瀏覽器 Console 的錯誤訊息
+- 確認 API 是否正常運行（訪問 `http://localhost:5000/swagger`）
+
+### 問題 4：登入成功但畫面沒有更新
+
+**解決方案：**
+- 檢查瀏覽器 Console 是否有 JavaScript 錯誤
+- 確認 API 響應是否正確（在 Network 標籤查看）
+
+## 下一步測試
+
+登入成功後，繼續測試：
+
+1. **今日訂單查詢** - 確認能否正確顯示當前訂單狀態
+2. **訂購功能** - 測試創建午餐/晚餐訂單
+3. **取消訂單** - 測試取消已創建的訂單
+4. **歷史查詢** - 測試查詢歷史訂單
+
+## 測試記錄
+
+請記錄以下信息：
+
+- [ ] 登入畫面顯示正常
+- [ ] 正確帳號密碼登入成功
+- [ ] 錯誤密碼登入失敗（顯示錯誤訊息）
+- [ ] 不存在員工編號登入失敗
+- [ ] 登入後畫面正確顯示
+- [ ] 所有UI元素正常顯示
+
+**測試時間：** __________
+
+**測試人員：** __________
+
+**備註：** __________
+
+```
+
+
+检查服务是否正常运行，并创建简化的测试指南：
+
+
+
+服务已在运行（端口 5000 正在监听）。开始测试：
+
+## 测试步骤
+
+### 1. 打开浏览器
+
+访问以下网址：
+```
+http://localhost:5000/employee
+```
+
+### 2. 测试员工登录
+
+您应该看到登录界面，包含：
+- 员工编号输入框（默认：93800）
+- 密码输入框（默认：1234）
+- 登录按钮
+
+### 3. 执行登录测试
+
+测试用例 1：正确登录
+1. 确认员工编号：`93800`
+2. 确认密码：`1234`
+3. 点击“登入”按钮
+4. 预期结果：
+   - 登入成功
+   - 显示“歡迎您，林淑鈺！”
+   - 显示今日订餐页面
+
+测试用例 2：错误密码
+1. 员工编号：`93800`
+2. 密码：`wrong`
+3. 点击“登入”
+4. 预期结果：显示错误信息
+
+### 4. 注意事项
+
+- 如果页面未加载，请检查浏览器控制台（F12）是否有错误
+- 如果登录失败，请查看 Network 标签检查 API 请求是否正常
+- 前端使用 `index_api.html`，已连接到 C# 后端 API
+
+### 5. 如果遇到问题
+
+检查以下内容：
+1. 服务是否运行（已完成，端口 5000 正在监听）
+2. 浏览器控制台是否有错误
+3. Network 标签中的 API 请求状态
+
+现在可以开始测试。请访问 `http://localhost:5000/employee` 并尝试登录。
+
+```plaintext
+http://localhost:5000/employee
 ```
 
