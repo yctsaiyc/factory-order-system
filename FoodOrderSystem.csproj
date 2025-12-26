@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>FoodOrderSystem</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,5 +14,8 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
-</Project>
+  <ItemGroup>
+    <Compile Remove="FoodOrderSystem.Tests\**\*.cs" />
+  </ItemGroup>
 
+</Project>
