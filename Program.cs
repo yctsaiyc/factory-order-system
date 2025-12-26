@@ -108,5 +108,4 @@ app.MapGet("/test", async (HttpContext context) =>
     }
 });
 
-app.Run("http://localhost:5000");
-
+app.Run();

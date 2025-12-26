@@ -23,14 +23,20 @@
       # "vscodevim.vim"
     ];
 
-    # Adding the preview configuration back for you to correct.
     previews = {
       enable = true;
       previews = {
         web = {
           command = [
-            "dotnet" "run"
-            "--urls" "http://0.0.0.0:$PORT"
+            "dotnet"
+            "run"
+            "--project"
+            "FoodOrderSystem.csproj"
+            "--no-launch-profile" # Ignore launchSettings.json
+            "--environment"
+            "Production"
+            "--urls"
+            "http://0.0.0.0:$PORT"
           ];
           manager = "web";
         };
