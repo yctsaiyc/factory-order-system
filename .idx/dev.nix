@@ -11,7 +11,8 @@
           # pkgs.python311Packages.pip
           # pkgs.nodejs_20
           # pkgs.nodePackages.nodemon
-pkgs.dotnet-sdk_7
+          pkgs.dotnet-sdk_7
+          pkgs.icu
         ];
 
         # Sets environment variables in the workspace
@@ -21,3 +22,5 @@ pkgs.dotnet-sdk_7
           extensions = [
             # "vscodevim.vim"
           ];
+        };
+      }
