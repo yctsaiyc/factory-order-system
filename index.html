@@ -347,12 +347,28 @@
         const dietMap = { MEAT: '葷食', VEG: '素食' };
         const riceMap = { FULL: '全飯', HALF: '半飯' };
 
-        function getOrders() {
-            return JSON.parse(localStorage.getItem('mealOrders')) || {};
-        }
-
-        function saveOrders(orders) {
-            localStorage.setItem('mealOrders', JSON.stringify(orders));
+        // --- API helper (use server-side storage via backend APIs) ---
+        async function apiRequest(path, method = 'GET', body = null) {
+            const opts = {
+                method,
+                headers: {}
+            };
+            if (body) {
+                opts.headers['Content-Type'] = 'application/json';
+                opts.body = JSON.stringify(body);
+            }
+            // include credentials so server session cookie is sent/received
+            const res = await fetch(path, { ...opts, credentials: 'include' });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`API ${method} ${path} failed: ${res.status} ${text}`);
+            }
+            // try parse json, else return null
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                return await res.json();
+            }
+            return null;
         }
 
         // --- 輔助函式：日期格式化 ---
@@ -374,6 +390,36 @@
             const now = new Date();
             return now.getHours() * 100 + now.getMinutes();
         }
+
+        // 檢查截止邏輯 (同步，在 client 端根據時間與日期判斷)
+        // 若提供 dateStr (yyyy-MM-dd)，則對該日期判斷；未提供則判定今日
+        function checkCutoff(mealType, dateStr) {
+            // normalize mealType to uppercase
+            const m = (mealType || '').toUpperCase();
+
+            const today = new Date();
+            const todayOnly = new Date(formatDate(today) + 'T00:00:00');
+
+            if (dateStr) {
+                const target = new Date(dateStr + 'T00:00:00');
+                if (target < todayOnly) return true; // 過去日期視為已截止
+                if (target > todayOnly) return false; // 未來日期視為未截止
+                // 若等於今日，繼續下面判斷
+            }
+
+            const now = new Date();
+            if (m === 'LUNCH') {
+                if (now.getHours() > LUNCH_CUTOFF_HOUR) return true;
+                if (now.getHours() === LUNCH_CUTOFF_HOUR && now.getMinutes() >= LUNCH_CUTOFF_MINUTE) return true;
+                return false;
+            }
+            if (m === 'DINNER') {
+                if (now.getHours() > DINNER_CUTOFF_HOUR) return true;
+                if (now.getHours() === DINNER_CUTOFF_HOUR && now.getMinutes() >= DINNER_CUTOFF_MINUTE) return true;
+                return false;
+            }
+            return false;
+        }
         
         // --- 登出功能 ---
         function logout() {
@@ -385,6 +431,30 @@
             alert('您已成功登出。');
             // 清空歷史紀錄顯示
             document.getElementById('history-result').innerHTML = '<p style="color: #666;">請輸入日期區間或使用快捷按鈕查詢。</p>';
+        }
+
+        // --- 登入 (呼叫後端 API) ---
+        async function login() {
+            const empIdInput = document.getElementById('employee-id').value.toUpperCase().trim();
+            const passwordInput = document.getElementById('employee-password').value;
+
+            try {
+                const resp = await apiRequest('/api/employee/login', 'POST', { EmpId: empIdInput, Password: passwordInput });
+                if (resp && resp.success) {
+                    const employee = resp.employee;
+                    loggedInEmpId = employee.EmpID;
+                    document.getElementById('employee-name').textContent = employee.EmpName;
+                    document.getElementById('login-section').style.display = 'none';
+                    document.getElementById('order-section').style.display = 'block';
+                    document.getElementById('TodayOrder').style.display = 'block';
+                    setQuickRange('thisMonth');
+                    await updateOrderUI();
+                } else {
+                    alert('登入失敗：帳號或密碼錯誤');
+                }
+            } catch (e) {
+                alert('登入錯誤：' + e.message);
+            }
         }
 
         // --- 輔助函式：計算快捷日期區間 ---
@@ -419,65 +489,51 @@
 
             document.getElementById('history-date-from').value = formatDate(startDate);
             document.getElementById('history-date-to').value = formatDate(endDate);
-            loadHistoryOrders(); 
         }
 
-        // --- 時間控制 [UPDATED]：檢查特定餐別是否截止 ---
-        function checkCutoff(mealType, dateKey = formatDate(new Date())) {
-            const todayKey = formatDate(new Date());
-            // 只有在處理今天的訂單時才檢查時間截止
-            if (dateKey !== todayKey) return false; 
+            async function saveWeeklyOrders() {
+                if (!loggedInEmpId) return;
 
-            const timeCode = getCurrentTimeCode();
-            let cutoffTime;
+                if (!confirm('確認儲存所選的一週/當月訂單嗎？這將會覆蓋您原有的訂單，並忽略已截止的日期。')) return;
 
-            if (mealType === 'LUNCH') {
-                cutoffTime = LUNCH_CUTOFF_HOUR * 100 + LUNCH_CUTOFF_MINUTE; // 830
-            } else if (mealType === 'DINNER') {
-                cutoffTime = DINNER_CUTOFF_HOUR * 100 + DINNER_CUTOFF_MINUTE; // 1600
-            } else {
-                return false; 
+                const ordersPayload = [];
+                let processedCount = 0;
+
+                document.querySelectorAll('#weekly-order-list tr').forEach(row => {
+                    const dateKey = row.getAttribute('data-date');
+
+                    const processOrder = (mealType) => {
+                        const dietEl = row.querySelector(`select[name="${mealType.toLowerCase()}-diet-${dateKey}"]`);
+                        const riceEl = row.querySelector(`select[name="${mealType.toLowerCase()}-rice-${dateKey}"]`);
+                        if (!dietEl || dietEl.disabled) return;
+
+                        if (dietEl.value && riceEl.value) {
+                            ordersPayload.push({ Date: dateKey, MealType: mealType, DietType: dietEl.value, RicePortion: riceEl.value });
+                            processedCount++;
+                        } else {
+                            // send an empty DietType to indicate cancellation for that date/meal
+                            ordersPayload.push({ Date: dateKey, MealType: mealType, DietType: '', RicePortion: '' });
+                            processedCount++;
+                        }
+                    };
+
+                    processOrder('LUNCH');
+                    processOrder('DINNER');
+                });
+
+                try {
+                    const resp = await apiRequest('/api/employee/weekly-orders', 'POST', { Orders: ordersPayload });
+                    if (resp && resp.success) {
+                        await loadWeeklyOrderTable();
+                        await updateOrderUI();
+                        alert(resp.message || `一週/當月訂單儲存成功！共處理 ${processedCount} 筆訂單/取消操作。`);
+                    } else {
+                        alert('儲存失敗');
+                    }
+                } catch (e) {
+                    alert('儲存錯誤：' + e.message);
+                }
             }
-
-            return timeCode > cutoffTime;
-        }
-
-        function updateTimeDisplay() {
-            const now = new Date();
-            document.getElementById('current-time').textContent = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }
-        setInterval(updateTimeDisplay, 1000); 
-
-        // --- 登入/身份確認 (含密碼) ---
-        function login() {
-            const empIdInput = document.getElementById('employee-id').value.toUpperCase().trim();
-            const passwordInput = document.getElementById('employee-password').value;
-
-            const employeeName = employeeData[empIdInput]; 
-
-            if (!employeeName) {
-                alert('員工編號錯誤或不存在！');
-                return;
-            }
-            if (passwordInput !== DUMMY_PASSWORD) { 
-                alert('密碼錯誤！請重新輸入。');
-                return;
-            }
-
-            // 驗證成功
-            loggedInEmpId = empIdInput;
-            document.getElementById('employee-name').textContent = employeeName;
-            document.getElementById('login-section').style.display = 'none';
-            document.getElementById('order-section').style.display = 'block';
-            
-            // 預設切換到今日訂餐頁籤
-            document.getElementById('TodayOrder').style.display = 'block';
-            
-            // 首次登入時載入歷史紀錄預設區間，即使歷史頁籤未顯示
-            setQuickRange('thisMonth'); 
-
-            updateOrderUI();
-        }
         
         // [UPDATED] 頁籤切換邏輯
         function openOrderTab(evt, tabName) {
@@ -505,65 +561,63 @@
 
 
         // --- UI 更新邏輯 (今日訂餐) [UPDATED]：檢查餐點專屬截止時間 ---
-        function updateOrderUI() {
+        async function updateOrderUI() {
             if (!loggedInEmpId) return;
 
             const today = formatDate(new Date());
-            const orders = getOrders();
-
-            const isLunchCutoff = checkCutoff('LUNCH');
-            const isDinnerCutoff = checkCutoff('DINNER');
-            const isAllCutoff = isLunchCutoff && isDinnerCutoff;
-
             const statusMessage = document.getElementById('status-message');
-            
-            // 1. 處理截止狀態
-            if (isAllCutoff) {
-                statusMessage.className = 'message alert-danger';
-                statusMessage.textContent = '今日訂餐時間已截止 (午餐 08:30 / 晚餐 16:00)。您已無法修改訂單。';
-            } else if (isLunchCutoff && !isDinnerCutoff) {
-                statusMessage.className = 'message alert-warning';
-                statusMessage.textContent = '今日午餐訂餐已截止 (08:30)。晚餐訂餐仍開放至 16:00。';
-            } else { 
-                statusMessage.className = 'message alert-success';
-                statusMessage.textContent = '訂餐時間內，您可以隨時修改或取消。';
-            }
-            
-            // 2. 處理今日訂單顯示
-            ['LUNCH', 'DINNER'].forEach(meal => {
-                const key = `${today}_${loggedInEmpId}_${meal}`;
-                const order = orders[key];
-                const orderBtn = document.getElementById(`order-${meal.toLowerCase()}-btn`);
-                const cancelBtn = document.getElementById(`cancel-${meal.toLowerCase()}-btn`);
-                const statusP = document.getElementById(`${meal.toLowerCase()}-status`);
-                
-                const isMealCutoff = checkCutoff(meal); 
-                const isBeforeCutoff = !isMealCutoff;
 
-                if (order && order.IsOrdered) {
-                    const dietText = dietMap[order.DietType];
-                    const riceText = riceMap[order.RicePortion];
-                    statusP.textContent = `✅ 已訂購 (${dietText} / ${riceText})`;
-                    statusP.style.color = '#155724';
-                    orderBtn.style.display = 'none';
-                    // 只有在截止前才顯示取消按鈕
-                    if (isBeforeCutoff) cancelBtn.style.display = 'block'; else cancelBtn.style.display = 'none';
-                    
-                    // 按鈕禁用狀態
-                    orderBtn.disabled = true;
-                    cancelBtn.disabled = !isBeforeCutoff;
+            try {
+                const resp = await apiRequest('/api/employee/today-orders', 'GET');
+                if (!resp || !resp.success) throw new Error('取得今日訂單失敗');
+                const data = resp.data;
+
+                const isLunchCutoff = data.lunch_cutoff;
+                const isDinnerCutoff = data.dinner_cutoff;
+                const isAllCutoff = isLunchCutoff && isDinnerCutoff;
+
+                if (isAllCutoff) {
+                    statusMessage.className = 'message alert-danger';
+                    statusMessage.textContent = '今日訂餐時間已截止 (午餐 08:30 / 晚餐 16:00)。您已無法修改訂單。';
+                } else if (isLunchCutoff && !isDinnerCutoff) {
+                    statusMessage.className = 'message alert-warning';
+                    statusMessage.textContent = '今日午餐訂餐已截止 (08:30)。晚餐訂餐仍開放至 16:00。';
                 } else {
-                    statusP.textContent = '尚未訂購';
-                    statusP.style.color = '#333';
-                    // 只有在截止前才顯示訂購按鈕
-                    if (isBeforeCutoff) orderBtn.style.display = 'block'; else orderBtn.style.display = 'none';
-                    cancelBtn.style.display = 'none';
-                    
-                    // 按鈕禁用狀態
-                    orderBtn.disabled = !isBeforeCutoff;
-                    cancelBtn.disabled = true;
+                    statusMessage.className = 'message alert-success';
+                    statusMessage.textContent = '訂餐時間內，您可以隨時修改或取消。';
                 }
-            });
+
+                ['LUNCH', 'DINNER'].forEach(meal => {
+                    const orderBtn = document.getElementById(`order-${meal.toLowerCase()}-btn`);
+                    const cancelBtn = document.getElementById(`cancel-${meal.toLowerCase()}-btn`);
+                    const statusP = document.getElementById(`${meal.toLowerCase()}-status`);
+
+                    const order = data[meal.toLowerCase()];
+                    const isMealCutoff = (meal === 'LUNCH') ? isLunchCutoff : isDinnerCutoff;
+                    const isBeforeCutoff = !isMealCutoff;
+
+                    if (order && order.IsOrdered) {
+                        const dietText = dietMap[order.DietType];
+                        const riceText = riceMap[order.RicePortion];
+                        statusP.textContent = `✅ 已訂購 (${dietText} / ${riceText})`;
+                        statusP.style.color = '#155724';
+                        orderBtn.style.display = 'none';
+                        if (isBeforeCutoff) cancelBtn.style.display = 'block'; else cancelBtn.style.display = 'none';
+                        orderBtn.disabled = true;
+                        cancelBtn.disabled = !isBeforeCutoff;
+                    } else {
+                        statusP.textContent = '尚未訂購';
+                        statusP.style.color = '#333';
+                        if (isBeforeCutoff) orderBtn.style.display = 'block'; else orderBtn.style.display = 'none';
+                        cancelBtn.style.display = 'none';
+                        orderBtn.disabled = !isBeforeCutoff;
+                        cancelBtn.disabled = true;
+                    }
+                });
+            } catch (e) {
+                statusMessage.className = 'message alert-danger';
+                statusMessage.textContent = '無法取得訂單資料：' + e.message;
+            }
         }
 
         // --- 核心訂購/取消邏輯 [UPDATED]：檢查餐點專屬截止時間 ---
@@ -582,32 +636,29 @@
             currentMealType = '';
         }
 
-        function confirmOrder() {
+        async function confirmOrder() {
             if (!loggedInEmpId) return;
 
             const dietType = document.querySelector('input[name="diet"]:checked').value;
             const ricePortion = document.querySelector('input[name="rice"]:checked').value;
             const today = formatDate(new Date());
             const key = `${today}_${loggedInEmpId}_${currentMealType}`;
-            const orders = getOrders();
-
-            orders[key] = {
-                EmpID: loggedInEmpId,
-                MealType: currentMealType,
-                DietType: dietType,
-                RicePortion: ricePortion,
-                IsOrdered: true,
-                OrderTime: new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                AdminModified: false
-            };
-
-            saveOrders(orders);
-            closeModal();
-            updateOrderUI();
-            alert(`訂購 ${currentMealType === 'LUNCH' ? '午餐' : '晚餐'} 成功！ (${dietMap[dietType]} / ${riceMap[ricePortion]})`);
+            try {
+                const body = { MealType: currentMealType, DietType: dietType, RicePortion: ricePortion, Date: today };
+                const resp = await apiRequest('/api/employee/order', 'POST', body);
+                if (resp && resp.success) {
+                    closeModal();
+                    await updateOrderUI();
+                    alert(`${resp.message || '訂購成功！'}`);
+                } else {
+                    alert('訂購失敗');
+                }
+            } catch (e) {
+                alert('訂購錯誤：' + e.message);
+            }
         }
 
-        function cancelOrder(mealType) {
+        async function cancelOrder(mealType) {
             if (!loggedInEmpId) return;
             if (checkCutoff(mealType)) { // [UPDATED]
                 alert('訂餐時間已截止，無法取消！');
@@ -615,15 +666,16 @@
             }
             if (!confirm(`確定要取消今日的 ${mealType === 'LUNCH' ? '午餐' : '晚餐'} 訂單嗎？`)) return;
 
-            const today = formatDate(new Date());
-            const key = `${today}_${loggedInEmpId}_${mealType}`;
-            const orders = getOrders();
-
-            if (orders[key]) {
-                delete orders[key]; 
-                saveOrders(orders);
-                updateOrderUI();
-                alert(`已取消 ${mealType === 'LUNCH' ? '午餐' : '晚餐'} 訂單。`);
+            try {
+                const resp = await apiRequest('/api/employee/cancel-order', 'POST', { MealType: mealType, Date: formatDate(new Date()) });
+                if (resp && resp.success) {
+                    await updateOrderUI();
+                    alert(resp.message || '取消成功');
+                } else {
+                    alert('取消失敗');
+                }
+            } catch (e) {
+                alert('取消錯誤：' + e.message);
             }
         }
         
@@ -669,15 +721,21 @@
             return dates;
         }
 
-        function loadWeeklyOrderTable() {
+        async function loadWeeklyOrderTable() {
             if (!loggedInEmpId) return;
             
             const weekType = document.getElementById('week-select').value;
             const datesRange = getDatesRange(weekType);
             const listBody = document.getElementById('weekly-order-list');
             listBody.innerHTML = '';
-            const allOrders = getOrders();
             const todayKey = formatDate(new Date());
+            let serverData = {};
+            try {
+                const resp = await apiRequest(`/api/employee/weekly-orders?weekType=${weekType}`, 'GET');
+                if (resp && resp.success) serverData = resp.data || {};
+            } catch (e) {
+                console.error('取得週訂單失敗', e);
+            }
             const warningEl = document.getElementById('weekly-warning');
             
             warningEl.style.display = 'none';
@@ -719,8 +777,9 @@
                 // 獲取現有訂單狀態
                 const lunchKey = `${dateKey}_${loggedInEmpId}_LUNCH`;
                 const dinnerKey = `${dateKey}_${loggedInEmpId}_DINNER`;
-                const existingLunch = allOrders[lunchKey];
-                const existingDinner = allOrders[dinnerKey];
+                // serverData is a mapping: date -> { LUNCH: object|null, DINNER: object|null }
+                const existingLunch = serverData[dateKey] ? serverData[dateKey].LUNCH : null;
+                const existingDinner = serverData[dateKey] ? serverData[dateKey].DINNER : null;
                 
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-date', dateKey);
@@ -814,104 +873,39 @@
             });
         }
         
-        function saveWeeklyOrders() {
-            if (!loggedInEmpId) return;
-
-            if (!confirm('確認儲存所選的一週/當月訂單嗎？這將會覆蓋您原有的訂單，並忽略已截止的日期。')) return;
-
-            let allOrders = getOrders();
-            let processedCount = 0;
-            const nowTime = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-            document.querySelectorAll('#weekly-order-list tr').forEach(row => {
-                const dateKey = row.getAttribute('data-date');
-                
-                // 移除不準確的總體行檢查，依賴於每個餐別的選單是否禁用
-
-                const processOrder = (mealType) => {
-                    const dietEl = row.querySelector(`select[name="${mealType.toLowerCase()}-diet-${dateKey}"]`);
-                    const riceEl = row.querySelector(`select[name="${mealType.toLowerCase()}-rice-${dateKey}"]`);
-                    
-                    // 如果選單不存在或已被禁用 (即已截止)，則跳過該餐別
-                    if (!dietEl || dietEl.disabled) return; 
-                    
-                    if (dietEl.value && riceEl.value) {
-                        allOrders[key] = {
-                            EmpID: loggedInEmpId,
-                            MealType: mealType,
-                            DietType: dietEl.value,
-                            RicePortion: riceEl.value,
-                            IsOrdered: true,
-                            OrderTime: allOrders[key] ? allOrders[key].OrderTime : nowTime, 
-                            AdminModified: false
-                        };
-                        processedCount++;
-                    } else {
-                        // 如果選單是 "未訂購/取消" 且本地儲存中有該訂單，則執行取消
-                        const key = `${dateKey}_${loggedInEmpId}_${mealType}`;
-                        if (allOrders[key]) {
-                            delete allOrders[key];
-                            processedCount++;
-                        }
-                    }
-                };
-
-                processOrder('LUNCH');
-                processOrder('DINNER');
-            });
-
-            saveOrders(allOrders);
-            loadWeeklyOrderTable(); 
-            updateOrderUI(); 
-            alert(`一週/當月訂單儲存成功！共處理 ${processedCount} 筆訂單/取消操作 (已排除已截止日期)。`);
-        }
+        
         
         // --- 載入歷史訂單功能 (區間查詢) - [維持不變] ---
-        function loadHistoryOrders() {
+        async function loadHistoryOrders() {
             if (!loggedInEmpId) return;
-            
+
             const dateFromStr = document.getElementById('history-date-from').value;
             const dateToStr = document.getElementById('history-date-to').value;
 
             const resultDiv = document.getElementById('history-result');
 
             if (!dateFromStr || !dateToStr) {
-                // 如果日期區間未設定，則不執行查詢，避免錯誤
                 resultDiv.innerHTML = `<p style="color: #666;">請輸入日期區間或使用快捷按鈕查詢。</p>`;
                 return;
             }
-            
-            const dateFrom = new Date(dateFromStr + 'T00:00:00');
-            const dateTo = new Date(dateToStr + 'T00:00:00');
-            const orders = getOrders();
-            let allRecords = [];
-            
-            if (dateFrom > dateTo) {
-                 resultDiv.innerHTML = `<p style="color: red;">起始日期不能晚於結束日期！</p>`;
-                 return;
+
+            if (dateFromStr > dateToStr) {
+                resultDiv.innerHTML = `<p style="color: red;">起始日期不能晚於結束日期！</p>`;
+                return;
             }
 
-            let currentDate = new Date(dateFrom);
-            while (currentDate <= dateTo) {
-                const dateKey = formatDate(currentDate);
-                const lunchKey = `${dateKey}_${loggedInEmpId}_LUNCH`;
-                const dinnerKey = `${dateKey}_${loggedInEmpId}_DINNER`;
-                
-                if (orders[lunchKey] && orders[lunchKey].IsOrdered) {
-                    allRecords.push({ dateKey, type: 'LUNCH', order: orders[lunchKey] });
-                }
-                if (orders[dinnerKey] && orders[dinnerKey].IsOrdered) {
-                    allRecords.push({ dateKey, type: 'DINNER', order: orders[dinnerKey] });
-                }
-                
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
+            try {
+                const resp = await apiRequest(`/api/employee/history?dateFrom=${dateFromStr}&dateTo=${dateToStr}`, 'GET');
+                if (!resp || !resp.success) throw new Error('查詢失敗');
+                const ordersList = resp.data || [];
 
-            if (allRecords.length === 0) {
-                resultDiv.innerHTML = `<p style="color: #999;">在 ${dateFromStr} 至 ${dateToStr} 期間沒有訂購紀錄。</p>`;
-            } else {
+                if (ordersList.length === 0) {
+                    resultDiv.innerHTML = `<p style="color: #999;">在 ${dateFromStr} 至 ${dateToStr} 期間沒有訂購紀錄。</p>`;
+                    return;
+                }
+
                 let tableHTML = `
-                    <h4>總共查詢到 ${allRecords.length} 筆訂單。訂單明細:</h4>
+                    <h4>總共查詢到 ${ordersList.length} 筆訂單。訂單明細:</h4>
                     <table>
                         <thead>
                             <tr>
@@ -925,20 +919,18 @@
                         <tbody>
                 `;
 
-                allRecords.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
-
-                allRecords.forEach(item => {
-                    const order = item.order;
-                    const mealText = mealMap[item.type];
-                    const optionText = `${dietMap[order.DietType]} (${riceMap[order.RicePortion]})`;
-                    const adminModifiedText = order.AdminModified ? '是' : '否';
+                ordersList.sort((a, b) => a.Date.localeCompare(b.Date));
+                ordersList.forEach(o => {
+                    const mealText = mealMap[o.MealType];
+                    const optionText = `${dietMap[o.DietType]} (${riceMap[o.RicePortion]})`;
+                    const adminModifiedText = o.AdminModified ? '是' : '否';
 
                     tableHTML += `
                         <tr>
-                            <td>${item.dateKey}</td>
+                            <td>${o.Date}</td>
                             <td>${mealText}</td>
                             <td>${optionText}</td>
-                            <td>${order.OrderTime || 'N/A'}</td>
+                            <td>${o.OrderTime || 'N/A'}</td>
                             <td>${adminModifiedText}</td>
                         </tr>
                     `;
@@ -949,10 +941,18 @@
                     </table>
                 `;
                 resultDiv.innerHTML = tableHTML;
+            } catch (e) {
+                resultDiv.innerHTML = `<p style="color: red;">查詢錯誤：${e.message}</p>`;
             }
         }
 
         // 初始化
+        function updateTimeDisplay() {
+            const now = new Date();
+            const el = document.getElementById('current-time');
+            if (el) el.textContent = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        setInterval(updateTimeDisplay, 1000);
         updateTimeDisplay();
     </script>
 </body>
