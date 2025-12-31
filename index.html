@@ -525,7 +525,7 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    loggedInEmpId = result.employee.EmpID;  // ← 前端變數
+                    loggedInEmpId = result.employee.empID;  // ← 前端變數
                     document.getElementById('employee-name').textContent = result.employee.empName;
                     document.getElementById('login-section').style.display = 'none';
                     document.getElementById('order-section').style.display = 'block';
@@ -644,30 +644,47 @@
             currentMealType = '';
         }
 
-        function confirmOrder() {
-            if (!loggedInEmpId) return;
+        async function confirmOrder() {
+            if (!loggedInEmpId) {
+                alert('請先登入！');
+                return;
+            }
 
-            const dietType = document.querySelector('input[name="diet"]:checked').value;
-            const ricePortion = document.querySelector('input[name="rice"]:checked').value;
-            const today = formatDate(new Date());
-            const key = `${today}_${loggedInEmpId}_${currentMealType}`;
-            const orders = getOrders();
+            const dietType = document.querySelector('input[name="diet"]:checked')?.value;
+            const ricePortion = document.querySelector('input[name="rice"]:checked')?.value;
 
-            orders[key] = {
-                EmpID: loggedInEmpId,
-                MealType: currentMealType,
-                DietType: dietType,
-                RicePortion: ricePortion,
-                IsOrdered: true,
-                OrderTime: new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                AdminModified: false
-            };
+            if (!dietType || !ricePortion) {
+                alert('請選擇餐點選項！');
+                return;
+            }
 
-            saveOrders(orders);
-            closeModal();
-            updateOrderUI();
-            alert(`訂購 ${currentMealType === 'LUNCH' ? '午餐' : '晚餐'} 成功！ (${dietMap[dietType]} / ${riceMap[ricePortion]})`);
+            try {
+                const response = await fetch('/api/employee/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        MealType: currentMealType,
+                        DietType: dietType,
+                        RicePortion: ricePortion,
+                        Date: formatDate(new Date())
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeModal();
+                    await updateOrderUI();
+                    alert(`訂購 ${currentMealType === 'LUNCH' ? '午餐' : '晚餐'} 成功！ (${dietMap[dietType]} / ${riceMap[ricePortion]})`);
+                } else {
+                    alert(result.message || '訂購失敗');
+                }
+            } catch (error) {
+                console.error('訂購錯誤:', error);
+                alert('訂購失敗，請重試');
+            }
         }
+
 
         function cancelOrder(mealType) {
             if (!loggedInEmpId) return;
