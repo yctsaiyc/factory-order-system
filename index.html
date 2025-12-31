@@ -388,8 +388,18 @@
         const dietMap = { MEAT: '葷食', VEG: '素食' };
         const riceMap = { FULL: '全飯', HALF: '半飯' };
 
-        function getOrders() {
-            return JSON.parse(localStorage.getItem('mealOrders')) || {};
+        async function getOrders(dateFrom = null, dateTo = null) {
+            if (dateFrom && dateTo) {
+                // 歷史查詢：指定日期範圍
+                const response = await fetch(`/api/employee/history?dateFrom=${dateFrom}&dateTo=${dateTo}`);
+                const result = await response.json();
+                return result.success ? result.data : {};
+            } else {
+                // 預設：取得今日訂單（給 loadWeeklyOrderTable）
+                const response = await fetch('/api/employee/today-orders');
+                const result = await response.json();
+                return result.success ? result.data : {};
+            }
         }
 
         async function saveOrders(empId, mealType, dietType, ricePortion, dateStr = formatDate(new Date())) {
@@ -412,7 +422,6 @@
                 return null;
             }
         }
-
 
         // --- 輔助函式：日期格式化 ---
         function formatDate(date) {
@@ -540,7 +549,6 @@
             }
         }
 
-
         // [UPDATED] 頁籤切換邏輯
         function openOrderTab(evt, tabName) {
             let i, tabcontent, tablinks;
@@ -564,7 +572,6 @@
                 updateOrderUI();
             }
         }
-
 
         // --- UI 更新邏輯 (今日訂餐) [UPDATED]：檢查餐點專屬截止時間 ---
         function updateOrderUI() {
@@ -685,7 +692,6 @@
             }
         }
 
-
         function cancelOrder(mealType) {
             if (!loggedInEmpId) return;
             if (checkCutoff(mealType)) { // [UPDATED]
@@ -707,7 +713,6 @@
         }
 
         // --- [MODIFIED] 一週/當月訂餐功能：更新截止時間判斷 ---
-
         function getDatesRange(type) {
             const today = new Date();
             const dates = [];
