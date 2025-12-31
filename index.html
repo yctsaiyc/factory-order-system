@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,14 +8,15 @@
     <link rel="stylesheet" href="styles.css">
     <style>
         /* 樣式調整以符合需求 */
-        
+
         /* [NEW] 調整頁面寬度 */
         .container {
-            max-width: 800px; /* 增加最大寬度 */
+            max-width: 800px;
+            /* 增加最大寬度 */
             margin: auto;
             padding: 20px;
         }
-        
+
         #login-section input {
             width: 100%;
             padding: 10px;
@@ -23,7 +25,7 @@
             border-radius: 5px;
             box-sizing: border-box;
         }
-        
+
         /* --- 歷史紀錄區塊樣式 (維持不變) --- */
         /* 移除原有的 #history-section 樣式，因為它已被移到頁籤內 */
         .history-controls {
@@ -32,19 +34,23 @@
             gap: 10px;
             margin-bottom: 15px;
         }
+
         .history-date-inputs {
             display: flex;
             gap: 10px;
             align-items: center;
         }
+
         .history-date-inputs label {
             white-space: nowrap;
         }
+
         .history-quick-buttons {
             display: flex;
-            flex-wrap: wrap; 
+            flex-wrap: wrap;
             gap: 5px;
         }
+
         .history-quick-buttons button {
             padding: 5px 10px;
             border: 1px solid #007bff;
@@ -54,70 +60,92 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
+
         .history-quick-buttons button:hover {
             background-color: #e6f7ff;
         }
+
         #history-result table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
         }
-        #history-result th, #history-result td {
+
+        #history-result th,
+        #history-result td {
             border: 1px solid #ddd;
             padding: 10px;
             text-align: left;
         }
+
         #history-result th {
             background-color: #007bff;
             color: white;
             font-weight: bold;
         }
+
         #history-result tr:nth-child(even) {
             background-color: #f2f2f2;
         }
+
         .history-record {
             display: none;
         }
+
         /* --- END 歷史紀錄區塊樣式 --- */
 
         /* [UPDATED] 頁籤樣式 - 記事本風格 */
         .order-tabs {
             display: flex;
-            margin-bottom: 0; 
+            margin-bottom: 0;
             border-bottom: 1px solid #ddd;
         }
+
         .tab-button {
             padding: 10px 15px;
             cursor: pointer;
             border: 1px solid #ddd;
-            border-bottom: none; 
+            border-bottom: none;
             font-size: 16px;
             font-weight: bold;
-            color: #333; /* 未選定：黑字 */
-            background-color: #f0f0f0; /* 未選定：淺灰底 */
+            color: #333;
+            /* 未選定：黑字 */
+            background-color: #f0f0f0;
+            /* 未選定：淺灰底 */
             border-top-left-radius: 6px;
             border-top-right-radius: 6px;
-            margin-right: 2px; 
+            margin-right: 2px;
             transition: background-color 0.2s, color 0.2s;
         }
+
         .tab-button.active {
-            color: white; /* 選定：白字 */
-            background-color: #007bff; /* 選定：藍底 */
+            color: white;
+            /* 選定：白字 */
+            background-color: #007bff;
+            /* 選定：藍底 */
             border-color: #007bff;
             position: relative;
-            z-index: 1; 
-            margin-bottom: -1px; /* 覆蓋 order-tabs 的 border-bottom */
+            z-index: 1;
+            margin-bottom: -1px;
+            /* 覆蓋 order-tabs 的 border-bottom */
         }
+
         .tab-content {
             display: none;
-            padding: 15px; /* 增加 padding */
-            border: 1px solid #ddd; /* 新增邊框 */
-            border-top: none; /* 上邊框被 active tab 覆蓋 */
-            min-height: 250px; /* 避免頁面跳動 */
+            padding: 15px;
+            /* 增加 padding */
+            border: 1px solid #ddd;
+            /* 新增邊框 */
+            border-top: none;
+            /* 上邊框被 active tab 覆蓋 */
+            min-height: 250px;
+            /* 避免頁面跳動 */
         }
+
         .tab-content.active {
             display: block;
         }
+
         /* [END UPDATED] 頁籤樣式 */
 
         /* [NEW] 週訂單表格樣式調整：不換行 */
@@ -125,31 +153,35 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
-            table-layout: fixed; 
+            table-layout: fixed;
         }
-        #weekly-order-table th, #weekly-order-table td {
+
+        #weekly-order-table th,
+        #weekly-order-table td {
             border: 1px solid #ddd;
-            padding: 8px 4px; 
+            padding: 8px 4px;
             text-align: center;
             vertical-align: top;
         }
+
         /* 強制表格儲存格內容不換行 */
         #weekly-order-table td {
-            white-space: nowrap; 
+            white-space: nowrap;
         }
+
         #weekly-order-table th {
             background-color: #f0f0f0;
         }
-        
+
         /* 調整選單寬度，讓兩個選單能在同一行顯示 */
         #weekly-order-table select {
-            width: 48%; 
+            width: 48%;
             display: inline-block;
-            margin: 0 1%; 
+            margin: 0 1%;
             padding: 5px 2px;
-            box-sizing: border-box; 
+            box-sizing: border-box;
         }
-        
+
         .week-order-controls {
             padding: 15px;
             border: 1px solid #ddd;
@@ -157,39 +189,43 @@
             margin-bottom: 20px;
             background-color: #f7f7f7;
         }
+
         .week-select-group {
             display: flex;
-            flex-wrap: wrap; 
+            flex-wrap: wrap;
             gap: 15px;
             align-items: center;
         }
+
         .week-select-group label {
             white-space: nowrap;
         }
+
         .week-select-group select {
-             padding: 8px;
-             border: 1px solid #ccc;
-             border-radius: 4px;
-             flex-grow: 1; 
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            flex-grow: 1;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h2>工廠員工訂餐系統</h2>
-        
+
         <div id="login-section">
             <input type="text" id="employee-id" placeholder="請輸入您的員工編號(93800)">
-            <input type="password" id="employee-password" placeholder="請輸入密碼(1234)"> 
+            <input type="password" id="employee-password" placeholder="請輸入密碼(1234)">
             <button class="btn btn-order" onclick="login()">登入</button>
         </div>
 
         <div id="order-section" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <p style="margin: 0;"><strong>歡迎您，<span id="employee-name"></span>！</strong></p>
-                <button class="btn btn-cancel" onclick="logout()" style="width: auto; padding: 5px 10px;">登出</button> 
+                <button class="btn btn-cancel" onclick="logout()" style="width: auto; padding: 5px 10px;">登出</button>
             </div>
-            
+
             <div class="order-tabs">
                 <button class="tab-button active" onclick="openOrderTab(event, 'TodayOrder')">今日訂餐</button>
                 <button class="tab-button" onclick="openOrderTab(event, 'WeeklyOrder')">一週/當月訂餐</button>
@@ -208,14 +244,16 @@
                         <h3>午餐 (Lunch)</h3>
                         <p id="lunch-status">尚未訂購</p>
                         <button class="btn btn-order" id="order-lunch-btn" onclick="openModal('LUNCH')">我要訂購</button>
-                        <button class="btn btn-cancel" id="cancel-lunch-btn" onclick="cancelOrder('LUNCH')" style="display: none;">取消訂單</button>
+                        <button class="btn btn-cancel" id="cancel-lunch-btn" onclick="cancelOrder('LUNCH')"
+                            style="display: none;">取消訂單</button>
                     </div>
 
                     <div class="meal-box dinner">
                         <h3>晚餐 (Dinner)</h3>
                         <p id="dinner-status">尚未訂購</p>
                         <button class="btn btn-order" id="order-dinner-btn" onclick="openModal('DINNER')">我要訂購</button>
-                        <button class="btn btn-cancel" id="cancel-dinner-btn" onclick="cancelOrder('DINNER')" style="display: none;">取消訂單</button>
+                        <button class="btn btn-cancel" id="cancel-dinner-btn" onclick="cancelOrder('DINNER')"
+                            style="display: none;">取消訂單</button>
                     </div>
                 </div>
             </div>
@@ -223,7 +261,7 @@
             <div id="WeeklyOrder" class="tab-content">
                 <h3>📅 預訂一週/當月(週一至週五)</h3>
                 <p class="alert-info" style="margin-bottom: 10px;">請注意：任何已截止的日期將無法修改，此處的設定將覆蓋該週您已有的訂單。</p>
-                
+
                 <div class="week-order-controls">
                     <div class="week-select-group">
                         <label for="week-select">選擇週別:</label>
@@ -268,10 +306,13 @@
                         </tr>
                     </thead>
                     <tbody id="weekly-order-list">
-                        <tr><td colspan="5">請選擇週別以載入訂單...</td></tr>
+                        <tr>
+                            <td colspan="5">請選擇週別以載入訂單...</td>
+                        </tr>
                     </tbody>
                 </table>
-                <button class="btn btn-order" style="margin-top: 20px; width: 100%;" onclick="saveWeeklyOrders()">✅ 確認儲存訂單</button>
+                <button class="btn btn-order" style="margin-top: 20px; width: 100%;" onclick="saveWeeklyOrders()">✅
+                    確認儲存訂單</button>
             </div>
 
             <div id="HistoryOrder" class="tab-content">
@@ -291,12 +332,12 @@
                         <button class="btn btn-order" style="width: 100px;" onclick="loadHistoryOrders()">查詢</button>
                     </div>
                 </div>
-                
+
                 <div id="history-result">
                     <p style="color: #666;">請輸入日期區間或使用快捷按鈕查詢。</p>
                 </div>
             </div>
-            </div>
+        </div>
     </div>
 
     <div id="orderModal" class="modal">
@@ -319,7 +360,7 @@
                 <label for="rice-full">全飯</label>
                 <input type="radio" id="rice-half" name="rice" value="HALF">
                 <label for="rice-half">半飯</label>
-            </div>           
+            </div>
 
             <button class="btn btn-order" onclick="confirmOrder()">確認訂購</button>
         </div>
@@ -332,7 +373,7 @@
         const LUNCH_CUTOFF_MINUTE = 30;
         const DINNER_CUTOFF_HOUR = 16; // 16 點 (4:00 PM)
         const DINNER_CUTOFF_MINUTE = 0;
-        
+
         let currentMealType = '';
         let loggedInEmpId = null;
 
@@ -341,7 +382,7 @@
             '28109': '詹金璋',
             '2400305': '王瀚章',
         };
-        const DUMMY_PASSWORD = '1234'; 
+        const DUMMY_PASSWORD = '1234';
 
         const mealMap = { LUNCH: '午餐', DINNER: '晚餐' };
         const dietMap = { MEAT: '葷食', VEG: '素食' };
@@ -362,26 +403,26 @@
             const d = String(date.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
         }
-        
+
         // 輔助函式：取得星期幾
         function getDayOfWeek(date) {
             const dayNames = ["日", "一", "二", "三", "四", "五", "六"];
             return dayNames[date.getDay()];
         }
-        
+
         // 輔助函式：獲取當前時間代碼
         function getCurrentTimeCode() {
             const now = new Date();
             return now.getHours() * 100 + now.getMinutes();
         }
-        
+
         // --- 登出功能 ---
         function logout() {
-            loggedInEmpId = null; 
-            document.getElementById('employee-id').value = ''; 
-            document.getElementById('employee-password').value = ''; 
-            document.getElementById('order-section').style.display = 'none'; 
-            document.getElementById('login-section').style.display = 'block'; 
+            loggedInEmpId = null;
+            document.getElementById('employee-id').value = '';
+            document.getElementById('employee-password').value = '';
+            document.getElementById('order-section').style.display = 'none';
+            document.getElementById('login-section').style.display = 'block';
             alert('您已成功登出。');
             // 清空歷史紀錄顯示
             document.getElementById('history-result').innerHTML = '<p style="color: #666;">請輸入日期區間或使用快捷按鈕查詢。</p>';
@@ -393,23 +434,23 @@
             let startDate, endDate;
 
             switch (period) {
-                case 'thisWeek': 
+                case 'thisWeek':
                     startDate = new Date(today);
-                    startDate.setDate(today.getDate() - today.getDay()); 
+                    startDate.setDate(today.getDate() - today.getDay());
                     endDate = new Date(startDate);
                     endDate.setDate(startDate.getDate() + 6);
                     break;
-                case 'lastWeek': 
+                case 'lastWeek':
                     startDate = new Date(today);
                     startDate.setDate(today.getDate() - today.getDay() - 7);
                     endDate = new Date(startDate);
                     endDate.setDate(startDate.getDate() + 6);
                     break;
-                case 'thisMonth': 
+                case 'thisMonth':
                     startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                     endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
                     break;
-                case 'lastMonth': 
+                case 'lastMonth':
                     startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
                     endDate = new Date(today.getFullYear(), today.getMonth(), 0);
                     break;
@@ -419,14 +460,14 @@
 
             document.getElementById('history-date-from').value = formatDate(startDate);
             document.getElementById('history-date-to').value = formatDate(endDate);
-            loadHistoryOrders(); 
+            loadHistoryOrders();
         }
 
         // --- 時間控制 [UPDATED]：檢查特定餐別是否截止 ---
         function checkCutoff(mealType, dateKey = formatDate(new Date())) {
             const todayKey = formatDate(new Date());
             // 只有在處理今天的訂單時才檢查時間截止
-            if (dateKey !== todayKey) return false; 
+            if (dateKey !== todayKey) return false;
 
             const timeCode = getCurrentTimeCode();
             let cutoffTime;
@@ -436,7 +477,7 @@
             } else if (mealType === 'DINNER') {
                 cutoffTime = DINNER_CUTOFF_HOUR * 100 + DINNER_CUTOFF_MINUTE; // 1600
             } else {
-                return false; 
+                return false;
             }
 
             return timeCode > cutoffTime;
@@ -446,20 +487,20 @@
             const now = new Date();
             document.getElementById('current-time').textContent = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
-        setInterval(updateTimeDisplay, 1000); 
+        setInterval(updateTimeDisplay, 1000);
 
         // --- 登入/身份確認 (含密碼) ---
         function login() {
             const empIdInput = document.getElementById('employee-id').value.toUpperCase().trim();
             const passwordInput = document.getElementById('employee-password').value;
 
-            const employeeName = employeeData[empIdInput]; 
+            const employeeName = employeeData[empIdInput];
 
             if (!employeeName) {
                 alert('員工編號錯誤或不存在！');
                 return;
             }
-            if (passwordInput !== DUMMY_PASSWORD) { 
+            if (passwordInput !== DUMMY_PASSWORD) {
                 alert('密碼錯誤！請重新輸入。');
                 return;
             }
@@ -469,16 +510,16 @@
             document.getElementById('employee-name').textContent = employeeName;
             document.getElementById('login-section').style.display = 'none';
             document.getElementById('order-section').style.display = 'block';
-            
+
             // 預設切換到今日訂餐頁籤
             document.getElementById('TodayOrder').style.display = 'block';
-            
+
             // 首次登入時載入歷史紀錄預設區間，即使歷史頁籤未顯示
-            setQuickRange('thisMonth'); 
+            setQuickRange('thisMonth');
 
             updateOrderUI();
         }
-        
+
         // [UPDATED] 頁籤切換邏輯
         function openOrderTab(evt, tabName) {
             let i, tabcontent, tablinks;
@@ -492,14 +533,14 @@
             }
             document.getElementById(tabName).style.display = "block";
             evt.currentTarget.className += " active";
-            
+
             if (tabName === 'WeeklyOrder') {
                 loadWeeklyOrderTable();
             } else if (tabName === 'HistoryOrder') {
                 // 如果是切換到歷史紀錄頁籤，強制重新載入資料 (確保日期區間的資料是最新)
                 loadHistoryOrders();
             } else {
-                updateOrderUI(); 
+                updateOrderUI();
             }
         }
 
@@ -516,7 +557,7 @@
             const isAllCutoff = isLunchCutoff && isDinnerCutoff;
 
             const statusMessage = document.getElementById('status-message');
-            
+
             // 1. 處理截止狀態
             if (isAllCutoff) {
                 statusMessage.className = 'message alert-danger';
@@ -524,11 +565,11 @@
             } else if (isLunchCutoff && !isDinnerCutoff) {
                 statusMessage.className = 'message alert-warning';
                 statusMessage.textContent = '今日午餐訂餐已截止 (08:30)。晚餐訂餐仍開放至 16:00。';
-            } else { 
+            } else {
                 statusMessage.className = 'message alert-success';
                 statusMessage.textContent = '訂餐時間內，您可以隨時修改或取消。';
             }
-            
+
             // 2. 處理今日訂單顯示
             ['LUNCH', 'DINNER'].forEach(meal => {
                 const key = `${today}_${loggedInEmpId}_${meal}`;
@@ -536,8 +577,8 @@
                 const orderBtn = document.getElementById(`order-${meal.toLowerCase()}-btn`);
                 const cancelBtn = document.getElementById(`cancel-${meal.toLowerCase()}-btn`);
                 const statusP = document.getElementById(`${meal.toLowerCase()}-status`);
-                
-                const isMealCutoff = checkCutoff(meal); 
+
+                const isMealCutoff = checkCutoff(meal);
                 const isBeforeCutoff = !isMealCutoff;
 
                 if (order && order.IsOrdered) {
@@ -548,7 +589,7 @@
                     orderBtn.style.display = 'none';
                     // 只有在截止前才顯示取消按鈕
                     if (isBeforeCutoff) cancelBtn.style.display = 'block'; else cancelBtn.style.display = 'none';
-                    
+
                     // 按鈕禁用狀態
                     orderBtn.disabled = true;
                     cancelBtn.disabled = !isBeforeCutoff;
@@ -558,7 +599,7 @@
                     // 只有在截止前才顯示訂購按鈕
                     if (isBeforeCutoff) orderBtn.style.display = 'block'; else orderBtn.style.display = 'none';
                     cancelBtn.style.display = 'none';
-                    
+
                     // 按鈕禁用狀態
                     orderBtn.disabled = !isBeforeCutoff;
                     cancelBtn.disabled = true;
@@ -620,32 +661,32 @@
             const orders = getOrders();
 
             if (orders[key]) {
-                delete orders[key]; 
+                delete orders[key];
                 saveOrders(orders);
                 updateOrderUI();
                 alert(`已取消 ${mealType === 'LUNCH' ? '午餐' : '晚餐'} 訂單。`);
             }
         }
-        
+
         // --- [MODIFIED] 一週/當月訂餐功能：更新截止時間判斷 ---
-        
+
         function getDatesRange(type) {
             const today = new Date();
             const dates = [];
 
             if (type === 'current' || type === 'next') {
                 let start = new Date(today);
-                let day = start.getDay(); 
-                
+                let day = start.getDay();
+
                 let offset = day === 0 ? -6 : 1 - day; // 算到本週一
-                
+
                 if (type === 'next') {
-                    offset += 7; 
+                    offset += 7;
                 }
-                
+
                 start.setDate(today.getDate() + offset);
-                
-                for (let i = 0; i < 5; i++) { 
+
+                for (let i = 0; i < 5; i++) {
                     const date = new Date(start);
                     date.setDate(start.getDate() + i);
                     dates.push(date);
@@ -655,7 +696,7 @@
                 const year = today.getFullYear();
                 const month = today.getMonth();
                 let currentDate = new Date(year, month, 1);
-                
+
                 while (currentDate.getMonth() === month) {
                     const dayOfWeek = currentDate.getDay(); // 0=日, 6=六
                     // 只包含週一 (1) 到週五 (5)
@@ -671,7 +712,7 @@
 
         function loadWeeklyOrderTable() {
             if (!loggedInEmpId) return;
-            
+
             const weekType = document.getElementById('week-select').value;
             const datesRange = getDatesRange(weekType);
             const listBody = document.getElementById('weekly-order-list');
@@ -679,30 +720,30 @@
             const allOrders = getOrders();
             const todayKey = formatDate(new Date());
             const warningEl = document.getElementById('weekly-warning');
-            
+
             warningEl.style.display = 'none';
 
             if (datesRange.length === 0) {
-                 listBody.innerHTML = '<tr><td colspan="5">無工作日資料...</td></tr>';
-                 return;
+                listBody.innerHTML = '<tr><td colspan="5">無工作日資料...</td></tr>';
+                return;
             }
 
             datesRange.forEach(date => {
                 const dateKey = formatDate(date);
                 const dayOfWeek = getDayOfWeek(date);
-                
+
                 // 判斷日期是否已過
                 const dateOnly = new Date(dateKey + 'T00:00:00');
                 const todayOnly = new Date(todayKey + 'T00:00:00');
-                const isPastDate = dateOnly < todayOnly; 
-                
+                const isPastDate = dateOnly < todayOnly;
+
                 // 判斷今日的午餐/晚餐是否截止 (包含過去日期)
-                const isLunchCutoff = isPastDate || checkCutoff('LUNCH', dateKey); 
-                const isDinnerCutoff = isPastDate || checkCutoff('DINNER', dateKey); 
+                const isLunchCutoff = isPastDate || checkCutoff('LUNCH', dateKey);
+                const isDinnerCutoff = isPastDate || checkCutoff('DINNER', dateKey);
 
                 // 綜合判斷，用於行背景和警告訊息
-                const isCutoff = isLunchCutoff && isDinnerCutoff; 
-                
+                const isCutoff = isLunchCutoff && isDinnerCutoff;
+
                 if (dateKey === todayKey) {
                     let warningText = '';
                     if (isLunchCutoff && isDinnerCutoff) {
@@ -721,20 +762,20 @@
                 const dinnerKey = `${dateKey}_${loggedInEmpId}_DINNER`;
                 const existingLunch = allOrders[lunchKey];
                 const existingDinner = allOrders[dinnerKey];
-                
+
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-date', dateKey);
-                tr.style.backgroundColor = isCutoff ? '#fff0f0' : 'white'; 
-                
+                tr.style.backgroundColor = isCutoff ? '#fff0f0' : 'white';
+
                 // Disabled attribute now depends on meal type cutoff
                 const disabledLunchAttr = isLunchCutoff ? 'disabled' : '';
                 const disabledDinnerAttr = isDinnerCutoff ? 'disabled' : '';
-                
-                // Cutoff text now reflects the status more generally
-                const cutoffText = isCutoff ? '✅' : 
-                                   (isLunchCutoff || isDinnerCutoff) ? '部分' : '❌'; // Updated cutoff status text
 
-                
+                // Cutoff text now reflects the status more generally
+                const cutoffText = isCutoff ? '✅' :
+                    (isLunchCutoff || isDinnerCutoff) ? '部分' : '❌'; // Updated cutoff status text
+
+
                 const generateOptions = (mealType, existingOrder) => {
                     const existingDiet = existingOrder ? existingOrder.DietType : '';
                     const existingRice = existingOrder ? existingOrder.RicePortion : '';
@@ -768,7 +809,7 @@
                 `;
                 listBody.appendChild(tr);
             });
-            
+
             applyDefaultOptions();
         }
 
@@ -781,15 +822,15 @@
             document.querySelectorAll('#weekly-order-list tr').forEach(row => {
                 const dateKey = row.getAttribute('data-date');
                 const lunchDietEl = row.querySelector(`select[name="lunch-diet-${dateKey}"]`);
-                
-                if (lunchDietEl && lunchDietEl.disabled) return; 
-                
+
+                if (lunchDietEl && lunchDietEl.disabled) return;
+
                 const processMeal = (mealType, defaultState) => {
                     const dietEl = row.querySelector(`select[name="${mealType.toLowerCase()}-diet-${dateKey}"]`);
                     const riceEl = row.querySelector(`select[name="${mealType.toLowerCase()}-rice-${dateKey}"]`);
-                    
+
                     if (!dietEl || !riceEl) return;
-                    
+
                     if (defaultState) {
                         if (dietEl.value === '') {
                             dietEl.value = defaultDiet;
@@ -797,8 +838,8 @@
                         }
                     } else {
                         if (dietEl.value !== '') {
-                             if ((mealType === 'LUNCH' && mealTypeSelect === 'DINNER') || 
-                                 (mealType === 'DINNER' && mealTypeSelect === 'LUNCH')) {
+                            if ((mealType === 'LUNCH' && mealTypeSelect === 'DINNER') ||
+                                (mealType === 'DINNER' && mealTypeSelect === 'LUNCH')) {
                                 dietEl.value = '';
                                 riceEl.value = '';
                             }
@@ -813,7 +854,7 @@
                 processMeal('DINNER', dinnerDefault);
             });
         }
-        
+
         function saveWeeklyOrders() {
             if (!loggedInEmpId) return;
 
@@ -825,16 +866,16 @@
 
             document.querySelectorAll('#weekly-order-list tr').forEach(row => {
                 const dateKey = row.getAttribute('data-date');
-                
+
                 // 移除不準確的總體行檢查，依賴於每個餐別的選單是否禁用
 
                 const processOrder = (mealType) => {
                     const dietEl = row.querySelector(`select[name="${mealType.toLowerCase()}-diet-${dateKey}"]`);
                     const riceEl = row.querySelector(`select[name="${mealType.toLowerCase()}-rice-${dateKey}"]`);
-                    
+
                     // 如果選單不存在或已被禁用 (即已截止)，則跳過該餐別
-                    if (!dietEl || dietEl.disabled) return; 
-                    
+                    if (!dietEl || dietEl.disabled) return;
+
                     if (dietEl.value && riceEl.value) {
                         allOrders[key] = {
                             EmpID: loggedInEmpId,
@@ -842,7 +883,7 @@
                             DietType: dietEl.value,
                             RicePortion: riceEl.value,
                             IsOrdered: true,
-                            OrderTime: allOrders[key] ? allOrders[key].OrderTime : nowTime, 
+                            OrderTime: allOrders[key] ? allOrders[key].OrderTime : nowTime,
                             AdminModified: false
                         };
                         processedCount++;
@@ -861,15 +902,15 @@
             });
 
             saveOrders(allOrders);
-            loadWeeklyOrderTable(); 
-            updateOrderUI(); 
+            loadWeeklyOrderTable();
+            updateOrderUI();
             alert(`一週/當月訂單儲存成功！共處理 ${processedCount} 筆訂單/取消操作 (已排除已截止日期)。`);
         }
-        
+
         // --- 載入歷史訂單功能 (區間查詢) - [維持不變] ---
         function loadHistoryOrders() {
             if (!loggedInEmpId) return;
-            
+
             const dateFromStr = document.getElementById('history-date-from').value;
             const dateToStr = document.getElementById('history-date-to').value;
 
@@ -880,15 +921,15 @@
                 resultDiv.innerHTML = `<p style="color: #666;">請輸入日期區間或使用快捷按鈕查詢。</p>`;
                 return;
             }
-            
+
             const dateFrom = new Date(dateFromStr + 'T00:00:00');
             const dateTo = new Date(dateToStr + 'T00:00:00');
             const orders = getOrders();
             let allRecords = [];
-            
+
             if (dateFrom > dateTo) {
-                 resultDiv.innerHTML = `<p style="color: red;">起始日期不能晚於結束日期！</p>`;
-                 return;
+                resultDiv.innerHTML = `<p style="color: red;">起始日期不能晚於結束日期！</p>`;
+                return;
             }
 
             let currentDate = new Date(dateFrom);
@@ -896,14 +937,14 @@
                 const dateKey = formatDate(currentDate);
                 const lunchKey = `${dateKey}_${loggedInEmpId}_LUNCH`;
                 const dinnerKey = `${dateKey}_${loggedInEmpId}_DINNER`;
-                
+
                 if (orders[lunchKey] && orders[lunchKey].IsOrdered) {
                     allRecords.push({ dateKey, type: 'LUNCH', order: orders[lunchKey] });
                 }
                 if (orders[dinnerKey] && orders[dinnerKey].IsOrdered) {
                     allRecords.push({ dateKey, type: 'DINNER', order: orders[dinnerKey] });
                 }
-                
+
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
@@ -956,4 +997,5 @@
         updateTimeDisplay();
     </script>
 </body>
+
 </html>
