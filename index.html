@@ -392,9 +392,27 @@
             return JSON.parse(localStorage.getItem('mealOrders')) || {};
         }
 
-        function saveOrders(orders) {
-            localStorage.setItem('mealOrders', JSON.stringify(orders));
+        async function saveOrders(empId, mealType, dietType, ricePortion, dateStr = formatDate(new Date())) {
+            try {
+                const response = await fetch('/api/employee/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        MealType: mealType,
+                        DietType: dietType,
+                        RicePortion: ricePortion,
+                        Date: dateStr
+                    })
+                });
+
+                const result = await response.json();
+                return result.success ? result.message : null;
+            } catch (error) {
+                console.error('儲存訂單失敗:', error);
+                return null;
+            }
         }
+
 
         // --- 輔助函式：日期格式化 ---
         function formatDate(date) {
@@ -490,35 +508,38 @@
         setInterval(updateTimeDisplay, 1000);
 
         // --- 登入/身份確認 (含密碼) ---
-        function login() {
+        async function login() {
             const empIdInput = document.getElementById('employee-id').value.toUpperCase().trim();
             const passwordInput = document.getElementById('employee-password').value;
 
-            const employeeName = employeeData[empIdInput];
+            try {
+                const response = await fetch('/api/employee/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        EmpId: empIdInput,      // ← 呼叫後端 VerifyEmployee
+                        Password: passwordInput
+                    })
+                });
 
-            if (!employeeName) {
-                alert('員工編號錯誤或不存在！');
-                return;
+                const result = await response.json();
+
+                if (result.success) {
+                    loggedInEmpId = result.employee.EmpID;  // ← 前端變數
+                    document.getElementById('employee-name').textContent = result.employee.empName;
+                    document.getElementById('login-section').style.display = 'none';
+                    document.getElementById('order-section').style.display = 'block';
+                    document.getElementById('TodayOrder').style.display = 'block';
+                    setQuickRange('thisMonth');
+                    await updateOrderUI();  // ← 載入真實訂單
+                } else {
+                    alert(result.message || '登入失敗');
+                }
+            } catch (error) {
+                alert('伺服器連線失敗');
             }
-            if (passwordInput !== DUMMY_PASSWORD) {
-                alert('密碼錯誤！請重新輸入。');
-                return;
-            }
-
-            // 驗證成功
-            loggedInEmpId = empIdInput;
-            document.getElementById('employee-name').textContent = employeeName;
-            document.getElementById('login-section').style.display = 'none';
-            document.getElementById('order-section').style.display = 'block';
-
-            // 預設切換到今日訂餐頁籤
-            document.getElementById('TodayOrder').style.display = 'block';
-
-            // 首次登入時載入歷史紀錄預設區間，即使歷史頁籤未顯示
-            setQuickRange('thisMonth');
-
-            updateOrderUI();
         }
+
 
         // [UPDATED] 頁籤切換邏輯
         function openOrderTab(evt, tabName) {
