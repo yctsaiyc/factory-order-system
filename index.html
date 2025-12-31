@@ -859,22 +859,24 @@
 
             document.querySelectorAll('#weekly-order-list tr').forEach(row => {
                 const dateKey = row.getAttribute('data-date');
-                const lunchDietEl = row.querySelector(`select[name="lunch-diet-${dateKey}"]`);
 
-                if (lunchDietEl && lunchDietEl.disabled) return;
+                // 檢查午餐是否已截止
+                const lunchDietEl = row.querySelector(`select[name="lunch-diet-${dateKey}"]`);
+                if (lunchDietEl && lunchDietEl.disabled) return;  // 已截止整行跳過
 
                 const processMeal = (mealType, defaultState) => {
                     const dietEl = row.querySelector(`select[name="${mealType.toLowerCase()}-diet-${dateKey}"]`);
                     const riceEl = row.querySelector(`select[name="${mealType.toLowerCase()}-rice-${dateKey}"]`);
-
                     if (!dietEl || !riceEl) return;
 
                     if (defaultState) {
+                        // 填預設（空白才填）
                         if (dietEl.value === '') {
                             dietEl.value = defaultDiet;
                             riceEl.value = defaultRice;
                         }
                     } else {
+                        // 清空邏輯：切換餐別時清空另一餐
                         if (dietEl.value !== '') {
                             if ((mealType === 'LUNCH' && mealTypeSelect === 'DINNER') ||
                                 (mealType === 'DINNER' && mealTypeSelect === 'LUNCH')) {
@@ -887,11 +889,15 @@
 
                 const lunchDefault = (mealTypeSelect === 'LUNCH' || mealTypeSelect === 'BOTH');
                 processMeal('LUNCH', lunchDefault);
-
                 const dinnerDefault = (mealTypeSelect === 'DINNER' || mealTypeSelect === 'BOTH');
                 processMeal('DINNER', dinnerDefault);
             });
+
+            // reload 顯示後端狀態，下個事件循環執行，設定10ms 延遲，避免觸發 onchange
+            setTimeout(() => loadWeeklyOrderTable(), 10);
         }
+
+
 
         async function saveWeeklyOrders() {
             if (!loggedInEmpId) {
