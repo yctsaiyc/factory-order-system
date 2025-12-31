@@ -893,57 +893,60 @@
             });
         }
 
-        function saveWeeklyOrders() {
-            if (!loggedInEmpId) return;
+        async function saveWeeklyOrders() {
+            if (!loggedInEmpId) {
+                alert('請先登入！');
+                return;
+            }
 
             if (!confirm('確認儲存所選的一週/當月訂單嗎？這將會覆蓋您原有的訂單，並忽略已截止的日期。')) return;
 
-            let allOrders = getOrders();
+            let ordersToSave = [];
             let processedCount = 0;
-            const nowTime = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
             document.querySelectorAll('#weekly-order-list tr').forEach(row => {
                 const dateKey = row.getAttribute('data-date');
 
-                // 移除不準確的總體行檢查，依賴於每個餐別的選單是否禁用
-
-                const processOrder = (mealType) => {
+                ['LUNCH', 'DINNER'].forEach(mealType => {
                     const dietEl = row.querySelector(`select[name="${mealType.toLowerCase()}-diet-${dateKey}"]`);
                     const riceEl = row.querySelector(`select[name="${mealType.toLowerCase()}-rice-${dateKey}"]`);
 
-                    // 如果選單不存在或已被禁用 (即已截止)，則跳過該餐別
                     if (!dietEl || dietEl.disabled) return;
 
                     if (dietEl.value && riceEl.value) {
-                        allOrders[key] = {
-                            EmpID: loggedInEmpId,
+                        ordersToSave.push({
+                            Date: dateKey,
                             MealType: mealType,
                             DietType: dietEl.value,
-                            RicePortion: riceEl.value,
-                            IsOrdered: true,
-                            OrderTime: allOrders[key] ? allOrders[key].OrderTime : nowTime,
-                            AdminModified: false
-                        };
+                            RicePortion: riceEl.value
+                        });
                         processedCount++;
-                    } else {
-                        // 如果選單是 "未訂購/取消" 且本地儲存中有該訂單，則執行取消
-                        const key = `${dateKey}_${loggedInEmpId}_${mealType}`;
-                        if (allOrders[key]) {
-                            delete allOrders[key];
-                            processedCount++;
-                        }
                     }
-                };
-
-                processOrder('LUNCH');
-                processOrder('DINNER');
+                });
             });
 
-            saveOrders(allOrders);
-            loadWeeklyOrderTable();
-            updateOrderUI();
-            alert(`一週/當月訂單儲存成功！共處理 ${processedCount} 筆訂單/取消操作 (已排除已截止日期)。`);
+            try {
+                const response = await fetch('/api/employee/weekly-orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Orders: ordersToSave })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadWeeklyOrderTable();
+                    await updateOrderUI();
+                    alert(`一週/當月訂單儲存成功！共處理 ${result.processedCount || processedCount} 筆訂單。`);
+                } else {
+                    alert(result.message || '儲存失敗');
+                }
+            } catch (error) {
+                console.error('週訂儲存錯誤:', error);
+                alert('儲存失敗，請重試');
+            }
         }
+
 
         // --- 載入歷史訂單功能 (區間查詢) - [維持不變] ---
         function loadHistoryOrders() {
